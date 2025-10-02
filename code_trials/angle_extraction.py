@@ -281,13 +281,13 @@ def horizontal_scan_for_center_peaks(image, resolution=50, center_info=None, plo
         center_info =Center_Radius_iterations(edges, plot=False, verbose=False)
 
     cx, cy, r, rms = center_info[:4]
-    inner_circle_rad=   r-90
+    inner_circle_rad=   r-100
     H_limit = [int(cx-inner_circle_rad), int(cx+inner_circle_rad)]
     V_limit = [int(cy-inner_circle_rad), int(cy+inner_circle_rad)]
 
     Horizontal_limits = [int(cx-r),int(cx+r)]
     Vertical_limits = [int(cy-r),int(cy+r)]
-
+    
     
 
     if plot:
@@ -307,23 +307,75 @@ def horizontal_scan_for_center_peaks(image, resolution=50, center_info=None, plo
         if verbose:
             print(f"Line {j} at y={y}")
 
-        line_scan = np.max(gray_image[y, :])-gray_image[y,:]
+        full_scan = np.max(gray_image[y, :])-gray_image[y,:]
 
         # calculate left and right limits for the line scan useing circle equation
 
         square_diff =(np.ceil(inner_circle_rad**2) - (np.floor(y - cy))**2)
-        if square_diff <= 0:
+        mod = 0
+        while square_diff <= 0:
+            mod += 1
             if verbose:
-                print(f"Skipping line {j} at y={y} - outside inner circle")
-            continue
+                print(f"Line {j} at y={y} - outside inner circle")
+            y = int(cy - inner_circle_rad)+mod
+            square_diff =(np.ceil(inner_circle_rad**2) - (np.floor(y - cy))**2)
+            if verbose:   print(f"setting y to inside inner circle, {y}")
+            if mod>5:
+                break
+                
 
         left_most = int(cx - np.sqrt(square_diff))
         right_most = int(cx + np.sqrt(square_diff))
 
-        line_scan[:left_most] = line_scan[left_most]
-        line_scan[right_most:] =     line_scan[right_most]
+        line_scan = full_scan.copy()
+        left_value =line_scan[left_most+2]
+        right_value=line_scan[right_most-2]
+        endcap_avg = (float(left_value)+float(right_value))/2.0
+        # print("left and right values",left_value,right_value)
+        # print("endcap avg",endcap_avg)
 
-        smooth_scan = scipy.signal.savgol_filter(line_scan, window_length=11, polyorder=3)
+        line_scan[:left_most]  = line_scan[left_most+2]
+        line_scan[right_most:] = line_scan[right_most-2]
+        # print("left and right most",left_most,right_most)
+
+
+
+
+        #smoothing algorithm parameters
+        # window_length must be odd and less than or equal to the size of line_scan
+
+        line_scan_diff = np.gradient(full_scan )
+        line_scan_diff[:left_most+20]  = 0
+        line_scan_diff[right_most-20:] = 0
+
+        # print("line scan diff ::10",line_scan_diff[::10])
+
+        # print("max diff",np.max(line_scan_diff), " min diff", np.min(line_scan_diff))
+        # print("Std dev", np.std(line_scan_diff))
+
+        
+        window_length = 41
+        polyorder = 6
+
+        if np.std(line_scan_diff) < 1.3:
+            window_length = 11
+            polyorder = 6
+        elif np.std(line_scan_diff) < 2:
+            window_length = 31
+            polyorder = 5
+        elif np.std(line_scan_diff) < 3:
+            window_length = 35
+            polyorder = 4
+        elif np.std(line_scan_diff) >= 3:
+            window_length = 41
+            polyorder = 3
+
+        
+
+
+        smooth_scan = scipy.signal.savgol_filter(line_scan, 
+                                    window_length=window_length,
+                                    polyorder=polyorder)
 
 
         if plot>1:
@@ -385,7 +437,8 @@ def vertical_scan_for_center_peaks(image, resolution=50, center_info=None, plot=
         center_info =Center_Radius_iterations(edges, plot=False, verbose=False)
 
     cx, cy, r, rms = center_info[:4]
-    inner_circle_rad=   r-91
+    inner_circle_rad=   r-99
+
     H_limit = [int(cx-inner_circle_rad), int(cx+inner_circle_rad)]
     V_limit = [int(cy-inner_circle_rad), int(cy+inner_circle_rad)]
 
@@ -412,7 +465,8 @@ def vertical_scan_for_center_peaks(image, resolution=50, center_info=None, plot=
         if verbose:
             print(f"Line {j} at x={x}")
 
-        line_scan = np.max(gray_image[:, x])-gray_image[:,x]
+        full_scan = np.max(gray_image[:, x])-gray_image[:,x]
+        line_scan = full_scan.copy()
 
         # calculate top and bottom limits for the line scan useing circle equation
 
@@ -425,10 +479,45 @@ def vertical_scan_for_center_peaks(image, resolution=50, center_info=None, plot=
         top_most = int(cy - np.sqrt(square_diff))
         bottom_most = int(cy + np.sqrt(square_diff))
 
-        line_scan[:top_most] = line_scan[top_most]
-        line_scan[bottom_most:] =     line_scan[bottom_most]
+        top_value =line_scan[top_most+20]
+        bottom_value=line_scan[bottom_most-20]
+        endcap_avg = (float(top_value)+float(bottom_value))/2.0
+        line_scan[:top_most+20]    = line_scan[top_most+20]
+        line_scan[bottom_most-20:] = line_scan[bottom_most-20]
 
-        smooth_scan = scipy.signal.savgol_filter(line_scan, window_length=15, polyorder=3)
+
+                #smoothing algorithm parameters
+        # window_length must be odd and less than or equal to the size of line_scan
+
+        line_scan_diff = np.gradient(full_scan )
+        line_scan_diff[:top_most+20]  = 0
+        line_scan_diff[bottom_most-20:] = 0
+
+        # print("line scan diff ::10",line_scan_diff[::10])
+
+        # print("max diff",np.max(line_scan_diff), " min diff", np.min(line_scan_diff))
+        # print("Std dev", np.std(line_scan_diff))
+
+        
+        window_length = 41
+        polyorder = 6
+
+        if np.std(line_scan_diff) < 1.3:
+            window_length = 11
+            polyorder = 6
+        elif np.std(line_scan_diff) < 2:
+            window_length = 31
+            polyorder = 5
+        elif np.std(line_scan_diff) < 3:
+            window_length = 35
+            polyorder = 4
+        elif np.std(line_scan_diff) >= 3:
+            window_length = 41
+            polyorder = 3
+
+        smooth_scan = scipy.signal.savgol_filter(line_scan,
+                            window_length=window_length,
+                            polyorder=polyorder) 
 
 
         
@@ -442,6 +531,14 @@ def vertical_scan_for_center_peaks(image, resolution=50, center_info=None, plot=
             fig2,ax2 = plt.subplots(figsize=(10,4))
             ax2.plot(line_scan, color="blue",label=f'Line {j} at x={x}')
             ax2.plot(smooth_scan, color="green",label='Smoothed Scan')
+            ax2.vlines(top_most, 0, np.max(line_scan),
+                    colors='red', linestyles='dashed', linewidth=1, label='top Limit')
+            ax2.vlines(bottom_most, 0, np.max(line_scan),
+                    colors='orange', linestyles='dashed', linewidth=1, label='bottom Limit')
+
+            ax2.hlines(endcap_avg, 0, len(line_scan),
+                    colors='black', linestyles='dashed', linewidth=1, label='End Cap Avg')
+
             ax2.grid() 
             ax2.legend()
             ax2.set_xlim(Vertical_limits)
@@ -460,6 +557,26 @@ def vertical_scan_for_center_peaks(image, resolution=50, center_info=None, plot=
         #                                         threshold=1,
         #                                             height=1)
 
+        if len(peaks)>0:
+            if abs(peaks[0]-top_most)<20:
+                if verbose:
+                    print(f"  Removing peak at {peaks[0]} - too close to top limit {top_most}")
+                peaks=peaks[1:]
+                peak_props={key: peak_props[key][1:] for key in peak_props}  # Update peak_props accordingly
+            if len(peaks)>0 and abs(peaks[-1]-bottom_most)<20:
+                if verbose:
+                    print(f"  Removing peak at {peaks[-1]} - too close to bottom limit {bottom_most}")
+                peaks=peaks[:-1]
+                peak_props={key: peak_props[key][:-1] for key in peak_props}  # Update peak_props accordingly
+            # check for prominence/width ratio
+            prominences = peak_props['prominences']
+            widths = peak_props['widths']
+            squat_ratio = prominences/widths
+            # print(squat_ratio)
+            #drop peaks that have a squat ratio < 1.3
+            valid_peaks_mask = squat_ratio >= 1.2
+            peaks = peaks[valid_peaks_mask]
+            peak_props = {key: peak_props[key][valid_peaks_mask] for key in peak_props}
 
 
 
@@ -538,6 +655,8 @@ def find_two_lines(data, plot=True, verbose=False):
     Full_pred = ransac1.predict(X)
 
     Full_residuals = np.abs(y-Full_pred)
+
+
 
     # fit new line to data that has Full_residulas <2
     low_residuals_mask = Full_residuals < 2
@@ -939,7 +1058,7 @@ def two_line_fit_with_rotation(points:np.ndarray, plot=False, verbose=False):
     X_remaining = X[outlier_mask1]
     y_remaining = y[outlier_mask1]
     # Use RANSAC on remaining points for second line
-    ransac2 = RANSACRegressor(LinearRegression(), residual_threshold=10, random_state=1)
+    ransac2 = RANSACRegressor(LinearRegression(), residual_threshold=5, random_state=1)
     ransac2.fit(X_remaining, y_remaining)
     inlier_mask2 = ransac2.inlier_mask_
     outlier_mask2= np.logical_not(inlier_mask2)
@@ -953,7 +1072,48 @@ def two_line_fit_with_rotation(points:np.ndarray, plot=False, verbose=False):
 
 
     inlier_mask2 = full_inlier_mask2
+    inlier_mask2_temp = inlier_mask2.copy()
     outlier_mask2 = full_outlier_mask2
+# check spacing between adjacent points
+    spacing1 = np.diff(np.sort(X[inlier_mask1].flatten()))
+    mean_spacing1 = np.mean(spacing1)
+    spacing2 = np.diff(np.sort(X[inlier_mask2].flatten()))
+    mean_spacing2 = np.mean(spacing2)
+  
+    if any(spacing2 > 100):
+        if verbose:
+            print("Large gaps detected in line 2, refining fit...")
+            large_gaps_indices = np.where(spacing2 > 100)[0]
+            space_count = len(spacing2)
+            need_to_drop=[]
+            for index in range(large_gaps_indices[0], space_count):
+                need_to_drop.append(index+1)
+            
+            Dropped_x_values = np.sort(X[inlier_mask2].flatten())[need_to_drop]
+            dropped_locs = []
+            for val in Dropped_x_values:
+                dropped_locs.append(np.where(X.flatten() == val))
+            #flatten the list of tuples if they are the same size
+            try:
+                dropped_locs = np.array(dropped_locs).flatten()
+            except:
+                temp_locs = dropped_locs.copy()
+                dropped_locs = []
+                for array in temp_locs:
+                    for val in array[0]:
+                        dropped_locs.append(val)
+            #create new masks without the dropped points
+            new_inlier_mask2 = inlier_mask2.copy()
+            new_inlier_mask2[dropped_locs] = False
+            new_outlier_mask2 = np.logical_not(new_inlier_mask2)    
+            Dropped_x_values = np.sort(X[inlier_mask2].flatten())
+
+            if verbose:
+                print(f"Dropped {len(dropped_locs)} points from line 2 fit due to large gaps")
+                print(f"New line 2 inliers count: {np.sum(new_inlier_mask2)}")
+
+            inlier_mask2 = new_inlier_mask2
+            outlier_mask2 = new_outlier_mask2
     #slopes and intercepts
     slope1 = ransac1.estimator_.coef_[0]
     intercept1 = ransac1.estimator_.intercept_
@@ -963,9 +1123,11 @@ def two_line_fit_with_rotation(points:np.ndarray, plot=False, verbose=False):
         print(f"Line 1: y = {slope1:.3f}x + {intercept1:.1f}")
         print(f"Line 2: y = {slope2:.3f}x + {intercept2:.1f}")
 
-    if np.abs(np.abs(slope2)) > 35:
-        if verbose:         print("Warning: Line 2 slope is near vertical, results may be unreliable")
+    if np.abs(slope1 - slope2) < 0.3:
+        if verbose: print("Warning: Lines are nearly parallel, fit may be unreliable")
 
+    if np.abs(np.abs(slope2)) > 24.9 or np.abs(np.abs(slope1) -1.45) < 0.05:
+        if verbose:         print("Warning: Line 2 slope is near vertical, results may be unreliable")
 
         if plot:
         #     #plot the first inliners and its prediction
@@ -1063,6 +1225,10 @@ def two_line_fit_with_rotation(points:np.ndarray, plot=False, verbose=False):
         line2_x = np.arange(X[inlier_mask2].min(),X[inlier_mask2].max(),0.1)
         line2_y = slope2 * line2_x + intercept2
 
+        if np.abs(slope2) > 24.9:
+            line2_y = np.arange(y[full_rot_inlier_mask2].min(),y[full_rot_inlier_mask2].max(),0.1)  
+            line2_x = (line2_y - intercept2) / slope2
+
         if plot:
             fig, ax  = plt.subplots()
             ax.scatter(X,y, c="gray", s=10, alpha= 0.5,label="data points")
@@ -1080,11 +1246,46 @@ def two_line_fit_with_rotation(points:np.ndarray, plot=False, verbose=False):
             ax.legend()
     ####End of rotation correction
 
-    line_x2 = np.arange(X[inlier_mask2].min(),X[inlier_mask2].max(),0.1)
+    #calc intersection of the two lines
+    intersect_x = (intercept2 - intercept1) / (slope1 - slope2)
+    intersect_y = slope1 * intersect_x + intercept1
+
+    line_x2 = np.arange(X[inlier_mask2].min(),X[inlier_mask2].max(),0.01)
     line_y2 = slope2 * line_x2 + intercept2
 
     line_x1 = np.arange(X[inlier_mask1].min(),X[inlier_mask1].max(),0.1)
     line_y1 = slope1 * line_x1 + intercept1
+
+    #if line 2 does not intersect with line 1, extend it to the intersection
+    if len(line_x2) == 0:
+        print("Error: No inliers found for line 2")
+        inlier_mask2 = inlier_mask2_temp
+        line_x2 = np.array(np.arange(X[inlier_mask2].min(),X[inlier_mask2].max(),0.01))
+        line_y2 = slope2 * line_x2 + intercept2
+
+    if min(line_x2) > intersect_x:
+        line_x2 = np.insert(line_x2, 0, intersect_x)
+        line_y2 = slope2 * line_x2 + intercept2
+    elif max(line_x2) < intersect_x:
+        line_x2 = np.append(line_x2, intersect_x)
+        line_y2 = slope2 * line_x2 + intercept2
+
+    if np.abs(slope2) > 24.9:
+        
+        
+        line_y2 = np.arange(y[full_rot_inlier_mask2].min(),y[full_rot_inlier_mask2].max(),0.1)  
+        line_x2 = (line_y2 - intercept2) / slope2
+        if min(line_y2) > intersect_y:
+        
+            line_y2 = np.insert(line_y2, 0, intersect_y)
+            line_x2 = (line_y2 - intercept2) / slope2
+        elif max(line_y2) < intersect_y:
+        
+            line_y2 = np.append(line_y2, intersect_y)
+            line_x2 = (line_y2 - intercept2) / slope2
+        
+
+
 
     if plot:
         #plot the first inliners and its prediction
@@ -1160,7 +1361,7 @@ def Angle_Measurment(image,points, line_info, plot=False, verbose=False, image_n
 
     #Find the angle of the main line, using the secondary line to determine orientation
     #Make the anlge be from the postive x axis, counter clockwise positive
-    Angle_line1 = np.abs(np.rad2deg(np.arctan(line_info[0])))
+    Angle_line1 = np.rad2deg(np.arctan(line_info[0]))
     Angle_line2 = np.rad2deg(np.arctan(line_info[2]))
     line1_m = line_info[0]
     line1_b = line_info[1]
@@ -1170,6 +1371,8 @@ def Angle_Measurment(image,points, line_info, plot=False, verbose=False, image_n
     y_intersect = line1_m * x_intersect + line1_b
     if verbose:
         print(f"Intersection at x={x_intersect:.1f}, y={y_intersect:.1f}")
+        print(f"Line 1 slope: {line1_m:.3f}, intercept: {line1_b:.1f}")
+        print(f"Line 2 slope: {line2_m:.3f}, intercept: {line2_b:.1f}")
         print(f"Angle of line 1 before quadrant adjustment: {Angle_line1:.1f}°")
         print(f"Angle of line 2 before quadrant adjustment: {Angle_line2:.1f}°")
     # Adjust the angle based on which quadrant line 2 lies in
@@ -1201,20 +1404,16 @@ def Angle_Measurment(image,points, line_info, plot=False, verbose=False, image_n
                 Angle_line1 = 270+Angle_line1
             else:
                 Angle_line1 = 360-Angle_line1
-    elif line1_m < 0:
+    elif line1_m <= 0:
         if line2_quadrant == 3 or line2_quadrant ==4:
-            Angle_line1 = 180+Angle_line1
+            Angle_line1 = 180-Angle_line1
         if line2_quadrant ==1 or line2_quadrant==2:
             Angle_line1=Angle_line1
     elif line1_m >0:
         if line2_quadrant == 2 or line2_quadrant==3:
-            Angle_line1 = Angle_line1 + 90
+            Angle_line1 = 180-Angle_line1
         elif line2_quadrant ==4 or line2_quadrant ==1:
             Angle_line1 = 360- Angle_line1 
-
-
-
-
 
     #count of points of line 1 in each quadrant
     line1_quadrant_counts = [0,0,0,0]
@@ -1357,9 +1556,9 @@ def Analyze_Image_Simple(image_name):
     tuple: The angle of the main line with the horizontal axis and intersection point.
     """
 
-    angle_info =Analyze_Image(image_name, plot_level=1, verbose_level=1)
+    angle_info =Analyze_Image(image_name, plot_level=0, verbose_level=0)
 
     angle = angle_info[0]
     
 
-    return angle
+    return np.round(angle,2)
