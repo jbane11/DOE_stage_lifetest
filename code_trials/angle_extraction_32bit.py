@@ -1,6 +1,6 @@
 import cv2
 import numpy as np
-from matplotlib import pyplot as plt
+
 import scipy,os
 from scipy.optimize import minimize
 # from typing import Tuple, List, Optional
@@ -38,9 +38,7 @@ def horizontal_edges(image, resolution:int=1, plot=0, verbose=False)->np.ndarray
     Horizontal_limits = [400,1200]
 
     if plot >=1:
-        fig1, ax1 = plt.subplots(figsize=(10,8))
-        ax1.imshow(image_rgb)
-
+       pass
 
     circle_peaks = []
 
@@ -61,34 +59,11 @@ def horizontal_edges(image, resolution:int=1, plot=0, verbose=False)->np.ndarray
                                                      prominence=12.5,height=height,
                                                      distance=40)# Filter peaks to find pairs that correspond to circle edges
 
-        #take the two extreme peaks as the circle edges
-        if len(peaks)>=2:
-            peaks=[min(peaks), max(peaks)]
 
-        for peak in peaks:
-            if plot==2: 
-                fig,ax = plt.subplots(figsize=(10,8))
-                ax.plot(full_raw_line)
-                ax.plot(line_blurred)
-                ax.plot(peak, line_blurred[peak], "x", markersize=10, color='red')
-                ax.grid()
-                ax.set_title(f"y={y}")
-            elif plot>2:
-                if y%((plot-1)*10)==0:
-                    fig,ax = plt.subplots(figsize=(10,8))
-                    ax.plot(peak, line_blurred[peak], "x", markersize=10, color='red')
-                    ax.plot(full_raw_line)
-                    ax.plot(line_blurred)
-                    ax.plot(peak, line_blurred[peak], "x", markersize=10, color='red')
-                    ax.grid()
-                    ax.set_title(f"y={y}")
             
-            
-            if plot>=1: 
-                ax1.plot(peak, y, "x", color='yellow')
-            
-
-            circle_peaks.append((peak,y))
+        if len(peaks)>0:
+            for peak in peaks:
+                circle_peaks.append((peak,y))
         if verbose:
             print(f"Found peaks at y={y}:")
             print(peaks)
@@ -155,19 +130,19 @@ def Center_Radius(peaks, plot=True, verbose=True):
         print(f"residual: {res_2:.2f}") 
 
     
-    if plot:
-        fig,ax = plt.subplots(figsize=(10,8))
-        ax.plot(circle_peaks[:,0], circle_peaks[:,1], 'b.', label='All Detected Peaks')
-        ax.plot(outlier_points[:,0], outlier_points[:,1], 'ro', label='outliers',alpha=0.7)
-        ax.plot(inlier_points[:,0], inlier_points[:,1], 'go', label='Inliers')
-        ax.plot(xc_2, yc_2, 'yx', markersize=10, label='Fitted Circle Center')
+    # if plot:
+    #     fig,ax = plt.subplots(figsize=(10,8))
+    #     ax.plot(circle_peaks[:,0], circle_peaks[:,1], 'b.', label='All Detected Peaks')
+    #     ax.plot(outlier_points[:,0], outlier_points[:,1], 'ro', label='outliers',alpha=0.7)
+    #     ax.plot(inlier_points[:,0], inlier_points[:,1], 'go', label='Inliers')
+    #     ax.plot(xc_2, yc_2, 'yx', markersize=10, label='Fitted Circle Center')
 
-        circle = plt.Circle((xc_2, yc_2), R_2, color='r', fill=False, linewidth=2)
-        ax.add_patch(circle)   
-        ax.set_title('RANSAC Circle Fit')
-        #ax.set_aspect('equal', adjustable='box')
-        ax.grid()
-        plt.legend()
+    #     circle = plt.Circle((xc_2, yc_2), R_2, color='r', fill=False, linewidth=2)
+    #     ax.add_patch(circle)   
+    #     ax.set_title('RANSAC Circle Fit')
+    #     #ax.set_aspect('equal', adjustable='box')
+    #     ax.grid()
+    #     plt.legend()
 
     return (xc_2, yc_2, R_2, np.std(Ri_2), res_2)
 
@@ -243,21 +218,21 @@ def Center_Radius_iterations(peaks=None, max_iterations=10, threshold=0.02, plot
     if removed:
         rem_arr = np.array(removed)
 
-    if plot:
-        # --- Plot result ---
-        fig, ax = plt.subplots(figsize=(6,6))
-        ax.scatter(remaining[:,0], remaining[:,1], label='kept points')
-        if removed:
-            ax.scatter(rem_arr[:,0], rem_arr[:,1], c='red', marker='x', label='removed points')
+    # if plot:
+    #     # --- Plot result ---
+    #     fig, ax = plt.subplots(figsize=(6,6))
+    #     ax.scatter(remaining[:,0], remaining[:,1], label='kept points')
+    #     if removed:
+    #         ax.scatter(rem_arr[:,0], rem_arr[:,1], c='red', marker='x', label='removed points')
 
-        theta = np.linspace(0, 2*np.pi, 400)
-        ax.plot(final_cx + final_r*np.cos(theta), final_cy + final_r*np.sin(theta), 'k-')
-        ax.set_aspect('equal', adjustable='box')
-        ax.set_title('Final circle fit with outlier removal')
-        ax.legend()
-        ax.invert_yaxis()  # Invert y-axis for image coordinates
-        ax.grid()
-        plt.show()
+    #     theta = np.linspace(0, 2*np.pi, 400)
+    #     ax.plot(final_cx + final_r*np.cos(theta), final_cy + final_r*np.sin(theta), 'k-')
+    #     ax.set_aspect('equal', adjustable='box')
+    #     ax.set_title('Final circle fit with outlier removal')
+    #     ax.legend()
+    #     ax.invert_yaxis()  # Invert y-axis for image coordinates
+    #     ax.grid()
+    #     plt.show()
 
 
     return final_cx, final_cy, final_r, final_rms, remaining, removed
@@ -288,14 +263,14 @@ def horizontal_scan_for_center_peaks(image, resolution=50, center_info=None, plo
     
     
 
-    if plot:
-      fig,ax = plt.subplots(figsize=(10,4))
-      ax.imshow(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
-      ax.plot(cx, cy, 'ro', label='Circle Center')
-      inner_circle = plt.Circle((cx, cy), inner_circle_rad, color='blue',
-                          fill=False, linestyle='--', linewidth=1, label='Inner Boundary')
-      ax.add_artist(inner_circle) 
-      ax.grid()
+    # if plot:
+    #   fig,ax = plt.subplots(figsize=(10,4))
+    #   ax.imshow(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+    #   ax.plot(cx, cy, 'ro', label='Circle Center')
+    #   inner_circle = plt.Circle((cx, cy), inner_circle_rad, color='blue',
+    #                       fill=False, linestyle='--', linewidth=1, label='Inner Boundary')
+    #   ax.add_artist(inner_circle) 
+    #   ax.grid()
 
 
     All_peaks = []
@@ -376,19 +351,19 @@ def horizontal_scan_for_center_peaks(image, resolution=50, center_info=None, plo
                                     polyorder=polyorder)
 
 
-        if plot>1:
-            ax.hlines(y, H_limit[0], H_limit[1],
-                    colors='red', linestyles='dashed', linewidth=1)
+        # if plot>1:
+        #     ax.hlines(y, H_limit[0], H_limit[1],
+        #             colors='red', linestyles='dashed', linewidth=1)
 
         
-        if plot > 1:
+        # if plot > 1:
             
-            fig2,ax2 = plt.subplots(figsize=(10,4))
-            ax2.plot(line_scan, color="blue",label=f'Line {j} at y={y}')
-            ax2.plot(smooth_scan, color="green",label='Smoothed Scan')
-            ax2.grid() 
-            ax2.legend()
-            ax2.set_xlim(Horizontal_limits)
+        #     fig2,ax2 = plt.subplots(figsize=(10,4))
+        #     ax2.plot(line_scan, color="blue",label=f'Line {j} at y={y}')
+        #     ax2.plot(smooth_scan, color="green",label='Smoothed Scan')
+        #     ax2.grid() 
+        #     ax2.legend()
+        #     ax2.set_xlim(Horizontal_limits)
 
         peaks=[]
 
@@ -403,11 +378,11 @@ def horizontal_scan_for_center_peaks(image, resolution=50, center_info=None, plo
                 print(f"    {key}: {peak_props[key]}")  
 
 
-        if len(peaks) > 0:
-            if plot > 1:
-                ax2.scatter(peaks, line_scan[peaks], color='red', s=50, label='Detected Peaks')
-            if plot >= 1:    
-                ax.scatter(peaks, np.full_like(peaks, y), color='cyan', s=20, label='Detected Peaks')
+        # if len(peaks) > 0:
+        #     if plot > 1:
+        #         ax2.scatter(peaks, line_scan[peaks], color='red', s=50, label='Detected Peaks')
+        #     if plot >= 1:    
+        #         ax.scatter(peaks, np.full_like(peaks, y), color='cyan', s=20, label='Detected Peaks')
 
         #If more then two peaks are found pick the best two based on prominence
         if len(peaks) > 2:
@@ -445,14 +420,14 @@ def vertical_scan_for_center_peaks(image, resolution=50, center_info=None, plot=
 
     
 
-    if plot:
-      fig,ax = plt.subplots(figsize=(6,10))
-      ax.imshow(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
-      ax.plot(cx, cy, 'ro', label='Circle Center')
-      inner_circle = plt.Circle((cx, cy), inner_circle_rad, color='blue',
-                          fill=False, linestyle='--', linewidth=1, label='Inner Boundary')
-      ax.add_artist(inner_circle) 
-      ax.grid()
+    # if plot:
+    #   fig,ax = plt.subplots(figsize=(6,10))
+    #   ax.imshow(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+    #   ax.plot(cx, cy, 'ro', label='Circle Center')
+    #   inner_circle = plt.Circle((cx, cy), inner_circle_rad, color='blue',
+    #                       fill=False, linestyle='--', linewidth=1, label='Inner Boundary')
+    #   ax.add_artist(inner_circle) 
+    #   ax.grid()
 
 
     All_peaks = []
@@ -519,27 +494,27 @@ def vertical_scan_for_center_peaks(image, resolution=50, center_info=None, plot=
 
 
         
-        if plot>1:
-            ax.vlines(x, V_limit[0], V_limit[1],
-                    colors='red', linestyles='dashed', linewidth=1)
+        # if plot>1:
+        #     ax.vlines(x, V_limit[0], V_limit[1],
+        #             colors='red', linestyles='dashed', linewidth=1)
 
         
-        if plot > 1:
+        # if plot > 1:
             
-            fig2,ax2 = plt.subplots(figsize=(10,4))
-            ax2.plot(line_scan, color="blue",label=f'Line {j} at x={x}')
-            ax2.plot(smooth_scan, color="green",label='Smoothed Scan')
-            ax2.vlines(top_most, 0, np.max(line_scan),
-                    colors='red', linestyles='dashed', linewidth=1, label='top Limit')
-            ax2.vlines(bottom_most, 0, np.max(line_scan),
-                    colors='orange', linestyles='dashed', linewidth=1, label='bottom Limit')
+        #     fig2,ax2 = plt.subplots(figsize=(10,4))
+        #     ax2.plot(line_scan, color="blue",label=f'Line {j} at x={x}')
+        #     ax2.plot(smooth_scan, color="green",label='Smoothed Scan')
+        #     ax2.vlines(top_most, 0, np.max(line_scan),
+        #             colors='red', linestyles='dashed', linewidth=1, label='top Limit')
+        #     ax2.vlines(bottom_most, 0, np.max(line_scan),
+        #             colors='orange', linestyles='dashed', linewidth=1, label='bottom Limit')
 
-            ax2.hlines(endcap_avg, 0, len(line_scan),
-                    colors='black', linestyles='dashed', linewidth=1, label='End Cap Avg')
+        #     ax2.hlines(endcap_avg, 0, len(line_scan),
+        #             colors='black', linestyles='dashed', linewidth=1, label='End Cap Avg')
 
-            ax2.grid() 
-            ax2.legend()
-            ax2.set_xlim(Vertical_limits)
+        #     ax2.grid() 
+        #     ax2.legend()
+        #     ax2.set_xlim(Vertical_limits)
 
 
         peaks=[]
@@ -589,11 +564,11 @@ def vertical_scan_for_center_peaks(image, resolution=50, center_info=None, plot=
         #     print(f"    {key}: {peak_props1[key]}")
 
 
-        if len(peaks) > 0:
-            if plot > 1:
-                ax2.scatter(peaks, line_scan[peaks], color='red', s=50, label='Detected Peaks')
-            if plot >= 1:
-                ax.scatter(np.full_like(peaks, x), peaks, color='cyan', s=20, label='Detected Peaks')
+        # if len(peaks) > 0:
+        #     if plot > 1:
+        #         ax2.scatter(peaks, line_scan[peaks], color='red', s=50, label='Detected Peaks')
+        #     if plot >= 1:
+        #         ax.scatter(np.full_like(peaks, x), peaks, color='cyan', s=20, label='Detected Peaks')
         # if len(peaks1) > 0:
         #     ax2.scatter(peaks1, smooth_scan[peaks1], color='red', s=50, label='All Detected Peaks')
             
@@ -624,7 +599,7 @@ def find_two_lines(data, plot=True, verbose=False):
     """
         
     import numpy as np
-    import matplotlib.pyplot as plt
+    
     from sklearn.linear_model import RANSACRegressor, LinearRegression
 
 
@@ -664,12 +639,6 @@ def find_two_lines(data, plot=True, verbose=False):
     
     x1_1 = np.arange(X[low_residuals_mask].min(),X[low_residuals_mask].max(),0.1).reshape(-1,1)
     y1_1 = ranscac1_1.predict(x1_1) 
-    if plot:
-        fig, ax  = plt.subplots()
-        plt.scatter(X[low_residuals_mask], y[low_residuals_mask],
-                 marker="D",color="magenta", s=30, label="data_low_residuals")
-
-
 
     X_remaing = X[outlier_mask1]
     y_remaining = y[outlier_mask1]
@@ -724,28 +693,28 @@ def find_two_lines(data, plot=True, verbose=False):
         line_y1 = line_y2
         line_y2 = temp_line_y
 
-    if plot:
-        # plot the first inliners and its prediction
-        # fig, ax  = plt.subplots()
-        plt.scatter(X[inlier_mask1], y[inlier_mask1],
-                     color="gray",marker="d", s=20, label="data_line1",)
-        plt.scatter(X[inlier_mask1], y_pred1, 
-                    color="green",marker="+", s=20, label="line1 inliers")  
+    # if plot:
+    #     # plot the first inliners and its prediction
+    #     # fig, ax  = plt.subplots()
+    #     plt.scatter(X[inlier_mask1], y[inlier_mask1],
+    #                  color="gray",marker="d", s=20, label="data_line1",)
+    #     plt.scatter(X[inlier_mask1], y_pred1, 
+    #                 color="green",marker="+", s=20, label="line1 inliers")  
 
-        plt.scatter(X_remaing[inlier_mask2], y_remaining[inlier_mask2],
-                     color="slategray", marker="o", s=20, label="data_line2")
-        plt.scatter(X_remaing[inlier_mask2], y_pred2, color="blue", marker="x", s=20, label="line2 inliers")
+    #     plt.scatter(X_remaing[inlier_mask2], y_remaining[inlier_mask2],
+    #                  color="slategray", marker="o", s=20, label="data_line2")
+    #     plt.scatter(X_remaing[inlier_mask2], y_pred2, color="blue", marker="x", s=20, label="line2 inliers")
 
-        final_remaing_x = X_remaing[~inlier_mask2]
-        final_remaing_y = y_remaining[~inlier_mask2]
+    #     final_remaing_x = X_remaing[~inlier_mask2]
+    #     final_remaing_y = y_remaining[~inlier_mask2]
 
-        plt.scatter(final_remaing_x, final_remaing_y, color="red", marker="s", s=20, label="line2 outliers")
-        plt.plot(line_x1, line_y1, "g-", label="Line 1 fit")
-        plt.plot(line_x2, line_y2, "b-", label="Line 2 fit")    
-        ax.yaxis.set_inverted(True)
-        plt.grid()
-        plt.legend()
-        plt.show()
+    #     plt.scatter(final_remaing_x, final_remaing_y, color="red", marker="s", s=20, label="line2 outliers")
+    #     plt.plot(line_x1, line_y1, "g-", label="Line 1 fit")
+    #     plt.plot(line_x2, line_y2, "b-", label="Line 2 fit")    
+    #     ax.yaxis.set_inverted(True)
+    #     plt.grid()
+    #     plt.legend()
+    #     plt.show()
     print(X[0], y[0])
     #x and y points for the two fits
     if flipped==1:
@@ -956,68 +925,68 @@ def fit_two_lines_ransac_improved(points, residual_threshold=10.0, min_angle_deg
         print(f"Inliers: {best_fit['fit_quality']['inliers1_count']} + {best_fit['fit_quality']['inliers2_count']} = {best_fit['fit_quality']['inliers1_count'] + best_fit['fit_quality']['inliers2_count']}")
         print(f"Outliers: {best_fit['fit_quality']['outliers_count']}")
     
-    # Plot results
-    if plot:
-        plt.figure(figsize=(12, 8))
+    # # Plot results
+    # if plot:
+    #     plt.figure(figsize=(12, 8))
         
-        # Plot all points
-        plt.scatter(points[:, 0], points[:, 1], c='lightgray', alpha=0.6, s=30, label='All points')
+    # #     # Plot all points
+    # #     plt.scatter(points[:, 0], points[:, 1], c='lightgray', alpha=0.6, s=30, label='All points')
         
-        # Plot inliers for each line
-        inliers1 = best_fit['inliers1']
-        inliers2 = best_fit['inliers2']
+    #     # Plot inliers for each line
+    #     inliers1 = best_fit['inliers1']
+    #     inliers2 = best_fit['inliers2']
         
-        if np.any(inliers1):
-            plt.scatter(points[inliers1, 0], points[inliers1, 1], 
-                       c='red', s=50, alpha=0.8, label=f'Line 1 inliers ({np.sum(inliers1)})')
+    #     if np.any(inliers1):
+    #         plt.scatter(points[inliers1, 0], points[inliers1, 1], 
+    #                    c='red', s=50, alpha=0.8, label=f'Line 1 inliers ({np.sum(inliers1)})')
         
-        if np.any(inliers2):
-            plt.scatter(points[inliers2, 0], points[inliers2, 1], 
-                       c='blue', s=50, alpha=0.8, label=f'Line 2 inliers ({np.sum(inliers2)})')
+    #     if np.any(inliers2):
+    #         plt.scatter(points[inliers2, 0], points[inliers2, 1], 
+    #                    c='blue', s=50, alpha=0.8, label=f'Line 2 inliers ({np.sum(inliers2)})')
         
-        # Plot outliers
-        outliers = ~(inliers1 | inliers2)
-        if np.any(outliers):
-            plt.scatter(points[outliers, 0], points[outliers, 1], 
-                       c='black', marker='x', s=60, label=f'Outliers ({np.sum(outliers)})')
+    #     # Plot outliers
+    #     outliers = ~(inliers1 | inliers2)
+    #     if np.any(outliers):
+    #         plt.scatter(points[outliers, 0], points[outliers, 1], 
+    #                    c='black', marker='x', s=60, label=f'Outliers ({np.sum(outliers)})')
         
-        # Plot fitted lines
-        x_range = np.linspace(points[:, 0].min() - 10, points[:, 0].max() + 10, 100)
+    #     # Plot fitted lines
+    #     x_range = np.linspace(points[:, 0].min() - 10, points[:, 0].max() + 10, 100)
 
     
 
-        #line two ends at line 1. 
-        # x_range_line2 = np.linespace
+    #     #line two ends at line 1. 
+    #     # x_range_line2 = np.linespace
         
-        line1_slope, line1_intercept = best_fit['line1_params']
-        line2_slope, line2_intercept = best_fit['line2_params']
+    #     line1_slope, line1_intercept = best_fit['line1_params']
+    #     line2_slope, line2_intercept = best_fit['line2_params']
         
-        y_line1 = line1_slope * x_range + line1_intercept
-        y_line2 = line2_slope * x_range + line2_intercept
+    #     y_line1 = line1_slope * x_range + line1_intercept
+    #     y_line2 = line2_slope * x_range + line2_intercept
         
-        angle1_deg = np.rad2deg(np.arctan(line1_slope))
-        angle2_deg = np.rad2deg(np.arctan(line2_slope))
+    #     angle1_deg = np.rad2deg(np.arctan(line1_slope))
+    #     angle2_deg = np.rad2deg(np.arctan(line2_slope))
         
-        plt.plot(x_range, y_line1, 'r--', linewidth=3, alpha=0.8,
-                label=f'Line 1: y={line1_slope:.3f}x+{line1_intercept:.1f} (θ={angle1_deg:.1f}°)')
-        plt.plot(x_range, y_line2, 'b--', linewidth=3, alpha=0.8,
-                label=f'Line 2: y={line2_slope:.3f}x+{line2_intercept:.1f} (θ={angle2_deg:.1f}°)')
+    #     plt.plot(x_range, y_line1, 'r--', linewidth=3, alpha=0.8,
+    #             label=f'Line 1: y={line1_slope:.3f}x+{line1_intercept:.1f} (θ={angle1_deg:.1f}°)')
+    #     plt.plot(x_range, y_line2, 'b--', linewidth=3, alpha=0.8,
+    #             label=f'Line 2: y={line2_slope:.3f}x+{line2_intercept:.1f} (θ={angle2_deg:.1f}°)')
         
-        plt.xlabel('X coordinate')
-        plt.ylabel('Y coordinate')
-        plt.title(f'RANSAC Two-Line Fitting (Angle diff: {best_fit["fit_quality"]["angle_diff_deg"]:.1f}°, '
-                  f'Coverage: {best_fit["fit_quality"]["coverage_ratio"]:.1%})')
-        plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-        plt.grid(True, alpha=0.3)
-        plt.tight_layout()
+    #     plt.xlabel('X coordinate')
+    #     plt.ylabel('Y coordinate')
+    #     plt.title(f'RANSAC Two-Line Fitting (Angle diff: {best_fit["fit_quality"]["angle_diff_deg"]:.1f}°, '
+    #               f'Coverage: {best_fit["fit_quality"]["coverage_ratio"]:.1%})')
+    #     plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+    #     plt.grid(True, alpha=0.3)
+    #     plt.tight_layout()
 
-        plt.gca().invert_yaxis()
-        xmin = points[:, 0].min() - 10
-        xmax = points[:, 0].max() + 10
-        ymin = points[:, 1].min() + 10
-        ymax = points[:, 1].max() -10
-        plt.xlim(xmin, xmax)
-        plt.ylim(ymax, ymin)
+    #     plt.gca().invert_yaxis()
+    #     xmin = points[:, 0].min() - 10
+    #     xmax = points[:, 0].max() + 10
+    #     ymin = points[:, 1].min() + 10
+    #     ymax = points[:, 1].max() -10
+    #     plt.xlim(xmin, xmax)
+    #     plt.ylim(ymax, ymin)
 
     return best_fit
 
@@ -1036,7 +1005,7 @@ def two_line_fit_with_rotation(points:np.ndarray, plot=False, verbose=False):
     """
         
     import numpy as np
-    import matplotlib.pyplot as plt
+    # import matplotlib.pyplot as plt
     from sklearn.linear_model import RANSACRegressor, LinearRegression
 
  
@@ -1127,19 +1096,19 @@ def two_line_fit_with_rotation(points:np.ndarray, plot=False, verbose=False):
     if np.abs(np.abs(slope2)) > 24.9 or np.abs(np.abs(slope1) -1.45) < 0.05:
         if verbose:         print("Warning: Line 2 slope is near vertical, results may be unreliable")
 
-        if plot:
-        #     #plot the first inliners and its prediction
-            fig, ax  = plt.subplots()
-            ax.scatter(X, y, c="gray", s=10, alpha= 0.5,label="data points")
-            ax.scatter(X[inlier_mask1], y[inlier_mask1],
-                    marker="d",c="r", s=20, label="data_line1",)
-            ax.scatter(X[inlier_mask2], y[inlier_mask2],
-                    marker="o",c="b", s=20, label="data_line2")
+        # if plot:
+        # #     #plot the first inliners and its prediction
+        #     fig, ax  = plt.subplots()
+        #     ax.scatter(X, y, c="gray", s=10, alpha= 0.5,label="data points")
+        #     ax.scatter(X[inlier_mask1], y[inlier_mask1],
+        #             marker="d",c="r", s=20, label="data_line1",)
+        #     ax.scatter(X[inlier_mask2], y[inlier_mask2],
+        #             marker="o",c="b", s=20, label="data_line2")
             
-            ax.set_title(f"Fit before rotation")
-            ax.yaxis.set_inverted(True)
-            ax.grid()
-            ax.legend()
+        #     ax.set_title(f"Fit before rotation")
+        #     ax.yaxis.set_inverted(True)
+        #     ax.grid()
+        #     ax.legend()
 
         #peform rotation on points and re-fit
         angle_to_rotate = np.deg2rad(45)
@@ -1170,21 +1139,21 @@ def two_line_fit_with_rotation(points:np.ndarray, plot=False, verbose=False):
         rotatedY_2 = rot_ransac2.estimator_.coef_[0] * rotatedX_2 + rot_ransac2.estimator_.intercept_[0]
 
 
-        if plot:
-        #     #plot the first inliners and its prediction
-            fig, ax  = plt.subplots()
-            ax.scatter(rotated_X, rotated_y, c="gray", s=10, alpha= 0.5,label="data points")
-            ax.scatter(rotated_X[rot_inlier_mask1], rotated_y[rot_inlier_mask1],
-                    marker="d",c="r", s=20, label="data_line1",)
-            ax.scatter(rotated_X_remaining[rot_inlier_mask2], rotated_y_remaining[rot_inlier_mask2],
-                    marker="o",c="b", s=20, label="data_line2")
+        # if plot:
+        # #     #plot the first inliners and its prediction
+        #     fig, ax  = plt.subplots()
+        #     ax.scatter(rotated_X, rotated_y, c="gray", s=10, alpha= 0.5,label="data points")
+        #     ax.scatter(rotated_X[rot_inlier_mask1], rotated_y[rot_inlier_mask1],
+        #             marker="d",c="r", s=20, label="data_line1",)
+        #     ax.scatter(rotated_X_remaining[rot_inlier_mask2], rotated_y_remaining[rot_inlier_mask2],
+        #             marker="o",c="b", s=20, label="data_line2")
             
-            ax.plot(rotatedX_1, rotatedY_1, "g-", label="Line 1 fit")
-            ax.plot(rotatedX_2, rotatedY_2, "m-", label="Line 2 fit")
-            ax.set_title(f"Rotated fit")
-            ax.yaxis.set_inverted(True)
-            ax.grid()
-            ax.legend()
+        #     ax.plot(rotatedX_1, rotatedY_1, "g-", label="Line 1 fit")
+        #     ax.plot(rotatedX_2, rotatedY_2, "m-", label="Line 2 fit")
+        #     ax.set_title(f"Rotated fit")
+        #     ax.yaxis.set_inverted(True)
+        #     ax.grid()
+        #     ax.legend()
         #slopes and intercepts
         rot_slope1 = rot_ransac1.estimator_.coef_[0]
         rot_intercept1 = rot_ransac1.estimator_.intercept_
@@ -1227,21 +1196,21 @@ def two_line_fit_with_rotation(points:np.ndarray, plot=False, verbose=False):
             line2_y = np.arange(y[full_rot_inlier_mask2].min(),y[full_rot_inlier_mask2].max(),0.1)  
             line2_x = (line2_y - intercept2) / slope2
 
-        if plot:
-            fig, ax  = plt.subplots()
-            ax.scatter(X,y, c="gray", s=10, alpha= 0.5,label="data points")
-            ax.scatter(X[rot_inlier_mask1], y[rot_inlier_mask1],
-                    marker="d",c="r", s=20, label="data_line1",)
-            ax.scatter(X[full_rot_inlier_mask2], y[full_rot_inlier_mask2],
-                    marker="o",c="b", s=20, label="data_line2")
+        # if plot:
+        #     fig, ax  = plt.subplots()
+        #     ax.scatter(X,y, c="gray", s=10, alpha= 0.5,label="data points")
+        #     ax.scatter(X[rot_inlier_mask1], y[rot_inlier_mask1],
+        #             marker="d",c="r", s=20, label="data_line1",)
+        #     ax.scatter(X[full_rot_inlier_mask2], y[full_rot_inlier_mask2],
+        #             marker="o",c="b", s=20, label="data_line2")
 
-            ax.plot(line1_x, line1_y, "g-", label="Line 1 fit")
-            ax.plot(line2_x, line2_y, "b-", label="Line 2 fit")
+        #     ax.plot(line1_x, line1_y, "g-", label="Line 1 fit")
+        #     ax.plot(line2_x, line2_y, "b-", label="Line 2 fit")
 
-            ax.set_title(f"Re-rotated fit")
-            ax.yaxis.set_inverted(True)
-            ax.grid()
-            ax.legend()
+        #     ax.set_title(f"Re-rotated fit")
+        #     ax.yaxis.set_inverted(True)
+        #     ax.grid()
+        #     ax.legend()
     ####End of rotation correction
 
     #calc intersection of the two lines
@@ -1285,23 +1254,23 @@ def two_line_fit_with_rotation(points:np.ndarray, plot=False, verbose=False):
 
 
 
-    if plot:
-        #plot the first inliners and its prediction
-        fig, ax  = plt.subplots()
-        ax.scatter(X,y, c="gray", s=10, alpha= 0.5,label="data points")
-        ax.scatter(X[inlier_mask1], y[inlier_mask1],
-                    marker="d",c="r", s=20, label="data_line1",)
+    # if plot:
+    #     #plot the first inliners and its prediction
+    #     fig, ax  = plt.subplots()
+    #     ax.scatter(X,y, c="gray", s=10, alpha= 0.5,label="data points")
+    #     ax.scatter(X[inlier_mask1], y[inlier_mask1],
+    #                 marker="d",c="r", s=20, label="data_line1",)
 
 
-        ax.scatter(X[inlier_mask2], y[inlier_mask2],
-                    marker="o",c="b", s=20, label="data_line2")
+    #     ax.scatter(X[inlier_mask2], y[inlier_mask2],
+    #                 marker="o",c="b", s=20, label="data_line2")
         
-        ax.plot(line_x1, line_y1, "g-", label="Line 1 fit")
-        ax.plot(line_x2, line_y2, "b-", label="Line 2 fit")
-        ax.set_title(f"Final fit")
-        ax.yaxis.set_inverted(True)
-        ax.grid()
-        ax.legend()
+    #     ax.plot(line_x1, line_y1, "g-", label="Line 1 fit")
+    #     ax.plot(line_x2, line_y2, "b-", label="Line 2 fit")
+    #     ax.set_title(f"Final fit")
+    #     ax.yaxis.set_inverted(True)
+    #     ax.grid()
+    #     ax.legend()
   
 
     #length of lines
@@ -1337,7 +1306,7 @@ def Angle_Measurment(image,points, line_info, plot=False, verbose=False, image_n
     """
         
     import numpy as np
-    import matplotlib.pyplot as plt
+    # import matplotlib.pyplot as plt
 
     if type(image) is str:
         image = cv2.imread(image)
@@ -1451,34 +1420,34 @@ def Angle_Measurment(image,points, line_info, plot=False, verbose=False, image_n
         print(f"Line 1 angle = {Angle_line1:.2f}°, Line 2 angle = {Angle_line2:.2f}°")
         print(f"Intersection point: ({x_intersect:.2f}, {y_intersect:.2f})")
 
-    if plot:
-        fig, ax = plt.subplots()
-        if image is not None:
-            ax.imshow(image, cmap='gray')
+    # if plot:
+    #     fig, ax = plt.subplots()
+    #     if image is not None:
+    #         ax.imshow(image, cmap='gray')
 
-        ax.scatter(points[:,0], points[:,1], color='gray', s=10, label='Data Points')
-        X_line1 = np.arange(line1_points[:,0].min(), line1_points[:,0].max(), 0.1)
-        X_line2 = np.arange(line2_points[:,0].min(), line2_points[:,0].max(), 0.1)
+    #     ax.scatter(points[:,0], points[:,1], color='gray', s=10, label='Data Points')
+    #     X_line1 = np.arange(line1_points[:,0].min(), line1_points[:,0].max(), 0.1)
+    #     X_line2 = np.arange(line2_points[:,0].min(), line2_points[:,0].max(), 0.1)
 
-        ax.plot(X_line1, line1_m * X_line1 + line1_b, 'r-', label=f'Line 1 Fit angle={Angle_line1:.1f}°')
-        ax.plot(X_line2, line2_m * X_line2 + line2_b, 'b-', label=f'Line 2 Fit angle={Angle_line2:.1f}°')
-        ax.plot(x_intersect, y_intersect, 'go', markersize=10, label='Intersection Point')
-        ax.axhline(y=y_intersect, color='gray', linestyle='--', label='Horizontal Line at Intersection')
-        ax.axvline(x=x_intersect, color='slategray', linestyle='--', label='Vertical Line at Intersection')
-        ax.set_xlim(points[:,0].min()-10, points[:,0].max()+10)
-        ax.set_ylim(points[:,1].min()-10, points[:,1].max()+10)
-        if image is not None:
-            ax.set_xlim(0, image.shape[1])
-            ax.set_ylim(image.shape[0], 0)
+    #     ax.plot(X_line1, line1_m * X_line1 + line1_b, 'r-', label=f'Line 1 Fit angle={Angle_line1:.1f}°')
+    #     ax.plot(X_line2, line2_m * X_line2 + line2_b, 'b-', label=f'Line 2 Fit angle={Angle_line2:.1f}°')
+    #     ax.plot(x_intersect, y_intersect, 'go', markersize=10, label='Intersection Point')
+    #     ax.axhline(y=y_intersect, color='gray', linestyle='--', label='Horizontal Line at Intersection')
+    #     ax.axvline(x=x_intersect, color='slategray', linestyle='--', label='Vertical Line at Intersection')
+    #     ax.set_xlim(points[:,0].min()-10, points[:,0].max()+10)
+    #     ax.set_ylim(points[:,1].min()-10, points[:,1].max()+10)
+    #     if image is not None:
+    #         ax.set_xlim(0, image.shape[1])
+    #         ax.set_ylim(image.shape[0], 0)
 
-        if image_number != "":
-            ax.set_title(f"Angle Measurement {image_number}")
-        else:
-            ax.invert_yaxis()
-        ax.grid()
-        ax.set_xlabel('X')
-        ax.set_ylabel('Y')
-        ax.legend()
+    #     if image_number != "":
+    #         ax.set_title(f"Angle Measurement {image_number}")
+    #     else:
+    #         ax.invert_yaxis()
+    #     ax.grid()
+    #     ax.set_xlabel('X')
+    #     ax.set_ylabel('Y')
+    #     ax.legend()
 
 
     return Angle_line1, Angle_line2, (x_intersect, y_intersect)
