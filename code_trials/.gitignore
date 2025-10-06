@@ -9,6 +9,7 @@ logs/
 # images
 images/
 images/*
+plots/*
 code_trials/images/*
 */*/*.png
 *?calibration/images/*
