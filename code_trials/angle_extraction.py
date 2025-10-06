@@ -1406,7 +1406,7 @@ def Angle_Measurment(image,points, line_info, plot=False, verbose=False, image_n
         if line2_quadrant == 3 or line2_quadrant ==4:
             Angle_line1 = 180-Angle_line1
         if line2_quadrant ==1 or line2_quadrant==2:
-            Angle_line1=Angle_line1
+            Angle_line1=np.abs(Angle_line1)
     elif line1_m >0:
         if line2_quadrant == 2 or line2_quadrant==3:
             Angle_line1 = 180-Angle_line1
@@ -1554,7 +1554,7 @@ def Analyze_Image_Simple(image_name):
     tuple: The angle of the main line with the horizontal axis and intersection point.
     """
 
-    angle_info =Analyze_Image(image_name, plot_level=0, verbose_level=0)
+    angle_info =Analyze_Image(image_name, plot_level=1, verbose_level=0)
 
     angle = angle_info[0]
     
