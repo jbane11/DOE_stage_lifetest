@@ -25,6 +25,12 @@ def compute():
         "angle": angle
     })
 
+# --- Ping route (health check) ---
+@app.route('/ping', methods=['GET'])
+def ping():
+    return jsonify({"status": "ok", "message": "Server is running"}), 200
+
+
 
 @app.route('/shutdown', methods=['GET','POST'])
 def shutdown():
