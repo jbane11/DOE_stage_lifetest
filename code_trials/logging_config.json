@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "disable_existing_loggers": false,
+  "formatters": {
+    "simple": {
+      "format": "%(asctime)s, %(message)s,[%(levelname)s|%(funcName)s|L%(lineno)d]",
+      "datefmt": "%Y-%m-%dT%H:%M:%S%z"
+    }  
+  },
+  "handlers": {
+      "DEBUG": {
+      "class": "logging.handlers.RotatingFileHandler",
+      "level": "DEBUG",
+      "filename": "logs\\DEBUG.log",
+      "formatter": "simple",
+      "maxBytes": 1000000,
+      "backupCount": 10
+    },
+    "stderr": {
+      "class": "logging.handlers.RotatingFileHandler",
+      "level": "WARNING",
+      "filename": "logs\\stderr.log",
+      "formatter": "simple",
+      "maxBytes": 1000000,
+      "backupCount": 10
+    },
+    "file_json": {
+      "class": "logging.handlers.RotatingFileHandler",
+      "level": "INFO",
+      "formatter": "simple",
+      "filename": "logs\\log.csv",
+      "maxBytes": 1000000,
+      "backupCount": 10
+    },
+    "queue_handler": {
+      "class": "logging.handlers.QueueHandler",
+      "handlers": [
+        "stderr",
+        "file_json",
+        "DEBUG"
+        
+      ],
+      "respect_handler_level": true
+    }
+  },
+  "loggers": {
+    "root": {
+      "level": "DEBUG",
+      "handlers": [
+        "queue_handler"
+      ]
+    }
+  }
+}

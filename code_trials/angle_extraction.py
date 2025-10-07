@@ -1,3 +1,4 @@
+import pathlib, datetime, atexit
 import cv2
 import numpy as np
 from matplotlib import pyplot as plt
@@ -8,6 +9,40 @@ from scipy.optimize import minimize
 from sklearn.linear_model import RANSACRegressor
 # from sklearn.cluster import KMeans
 import numpy as np
+
+import json, logging
+
+import logging.handlers
+import logging.config
+
+logger = logging.getLogger("DOE_log")
+config_file = pathlib.Path("logging_config.json")
+
+#grab the current path of this script
+current_path = pathlib.Path(__file__).parent
+if not config_file.exists():
+    config_file = current_path / "logging_config.json"
+
+with open(config_file) as f_in:
+    config = json.load(f_in)
+
+today = datetime.date.today().strftime("%Y%m%d")
+
+config["handlers"]["stderr"]["filename"] = f"logs/{today}-stderr.log"
+config["handlers"]["file_json"]["filename"] = f"logs/{today}-Lifetest.log"
+config["handlers"]["DEBUG"]["filename"] = f"logs/{today}-debug.log"
+
+logging.config.dictConfig(config)
+logging.getLogger('matplotlib.font_manager').disabled = True
+queue_handler = logging.getHandlerByName("queue_handler")
+if queue_handler is not None:
+    queue_handler.listener.start()
+    atexit.register(queue_handler.listener.stop)
+
+logger.info("Logging setup complete.")
+
+
+
 
 
 def horizontal_edges(image, resolution:int=1, plot=0, verbose=False)->np.ndarray:
@@ -583,6 +618,9 @@ def vertical_scan_for_center_peaks(image, resolution=50, center_info=None, plot=
             print(f"  Found {len(peaks)} peaks at x-positions: {peaks}") 
             for key in peak_props:
                 print(f"    {key}: {peak_props[key]}")  
+        logger.debug(f"Line {j} at x={x} - Found {len(peaks)} peaks at x-positions: {peaks}")
+        for key in peak_props:
+            logger.debug(f"    {key}: {peak_props[key]}")   
 
         # print(peaks1)
         # for key in peak_props1:
@@ -1081,37 +1119,42 @@ def two_line_fit_with_rotation(points:np.ndarray, plot=False, verbose=False):
     if any(spacing2 > 100):
         if verbose:
             print("Large gaps detected in line 2, refining fit...")
-            large_gaps_indices = np.where(spacing2 > 100)[0]
-            space_count = len(spacing2)
-            need_to_drop=[]
-            for index in range(large_gaps_indices[0], space_count):
-                need_to_drop.append(index+1)
-            
-            Dropped_x_values = np.sort(X[inlier_mask2].flatten())[need_to_drop]
+        large_gaps_indices = np.where(spacing2 > 100)[0]
+        space_count = len(spacing2)
+        need_to_drop=[]
+        for index in range(large_gaps_indices[0], space_count):
+            need_to_drop.append(index+1)
+        
+        Dropped_x_values = np.sort(X[inlier_mask2].flatten())[need_to_drop]
+        dropped_locs = []
+        for val in Dropped_x_values:
+            dropped_locs.append(np.where(X.flatten() == val))
+        #flatten the list of tuples if they are the same size
+        try:
+            dropped_locs = np.array(dropped_locs).flatten()
+        except:
+            temp_locs = dropped_locs.copy()
             dropped_locs = []
-            for val in Dropped_x_values:
-                dropped_locs.append(np.where(X.flatten() == val))
-            #flatten the list of tuples if they are the same size
-            try:
-                dropped_locs = np.array(dropped_locs).flatten()
-            except:
-                temp_locs = dropped_locs.copy()
-                dropped_locs = []
-                for array in temp_locs:
-                    for val in array[0]:
-                        dropped_locs.append(val)
-            #create new masks without the dropped points
-            new_inlier_mask2 = inlier_mask2.copy()
-            new_inlier_mask2[dropped_locs] = False
-            new_outlier_mask2 = np.logical_not(new_inlier_mask2)    
-            Dropped_x_values = np.sort(X[inlier_mask2].flatten())
+            for array in temp_locs:
+                for val in array[0]:
+                    dropped_locs.append(val)
+        #create new masks without the dropped points
+        new_inlier_mask2 = inlier_mask2.copy()
+        new_inlier_mask2[dropped_locs] = False
+        new_outlier_mask2 = np.logical_not(new_inlier_mask2)    
+        Dropped_x_values = np.sort(X[inlier_mask2].flatten())
 
-            if verbose:
-                print(f"Dropped {len(dropped_locs)} points from line 2 fit due to large gaps")
-                print(f"New line 2 inliers count: {np.sum(new_inlier_mask2)}")
+        if verbose:
+            print(f"Dropped {len(dropped_locs)} points from line 2 fit due to large gaps")
+            print(f"New line 2 inliers count: {np.sum(new_inlier_mask2)}")
 
-            inlier_mask2 = new_inlier_mask2
-            outlier_mask2 = new_outlier_mask2
+        logger.debug(f"Dropped x values: {Dropped_x_values}")
+        logger.debug(f"Dropped {len(dropped_locs)} points from line 2 fit due to large gaps")
+        logger.debug(f"New line 2 inliers count: {np.sum(new_inlier_mask2)}")
+
+
+        inlier_mask2 = new_inlier_mask2
+        outlier_mask2 = new_outlier_mask2
     #slopes and intercepts
     slope1 = ransac1.estimator_.coef_[0]
     intercept1 = ransac1.estimator_.intercept_
@@ -1120,12 +1163,16 @@ def two_line_fit_with_rotation(points:np.ndarray, plot=False, verbose=False):
     if verbose:
         print(f"Line 1: y = {slope1:.3f}x + {intercept1:.1f}")
         print(f"Line 2: y = {slope2:.3f}x + {intercept2:.1f}")
+    logger.info(f"Line 1: y = {slope1:.3f}x + {intercept1:.1f}")
+    logger.info(f"Line 2: y = {slope2:.3f}x + {intercept2:.1f}")
 
     if np.abs(slope1 - slope2) < 0.3:
         if verbose: print("Warning: Lines are nearly parallel, fit may be unreliable")
+        logger.warning("Lines are nearly parallel, fit may be unreliable")
 
     if np.abs(np.abs(slope2)) > 24.9 or np.abs(np.abs(slope1) -1.45) < 0.05:
-        if verbose:         print("Warning: Line 2 slope is near vertical, results may be unreliable")
+        if verbose: print("Warning: Line 2 slope is near vertical, results may be unreliable")
+        logger.warning("Line 2 slope is near vertical, results may be unreliable")
 
         if plot:
         #     #plot the first inliners and its prediction
@@ -1205,6 +1252,8 @@ def two_line_fit_with_rotation(points:np.ndarray, plot=False, verbose=False):
             print(f"Line 1: y = {slope1:.3f}x + {intercept1:.1f}")
             print(f"Line 2: y = {slope2:.3f}x + {intercept2:.1f}")
 
+
+
         # IF RE-ROTATION IMPROVES THE FIT, USE IT WIP for checking this
         # Calculate residuals for original fit
         y_pred1 = slope1 * X[rot_inlier_mask1].flatten() + intercept1
@@ -1256,7 +1305,7 @@ def two_line_fit_with_rotation(points:np.ndarray, plot=False, verbose=False):
 
     #if line 2 does not intersect with line 1, extend it to the intersection
     if len(line_x2) == 0:
-        print("Error: No inliers found for line 2")
+        logger.error("No inliers found for line 2")
         inlier_mask2 = inlier_mask2_temp
         line_x2 = np.array(np.arange(X[inlier_mask2].min(),X[inlier_mask2].max(),0.01))
         line_y2 = slope2 * line_x2 + intercept2
@@ -1308,11 +1357,14 @@ def two_line_fit_with_rotation(points:np.ndarray, plot=False, verbose=False):
     line1_length = np.sqrt((line_x1[-1]-line_x1[0])**2 + (line_y1[-1]-line_y1[0])**2)
     line2_length = np.sqrt((line_x2[-1]-line_x2[0])**2 + (line_y2[-1]-line_y2[0])**2)
     if verbose:
+        print("Number of inliers for line 1:", np.sum(inlier_mask1), "out of", len(y))
+        print("Number of inliers for line 2:", np.sum(inlier_mask2), "out of", len(X[outlier_mask1]))
 
-            print("Number of inliers for line 1:", np.sum(inlier_mask1), "out of", len(y))
-
-            print("Number of inliers for line 2:", np.sum(inlier_mask2), "out of", len(X[outlier_mask1]))
-
+    # logger.info("Number of inliers for line 1:", np.sum(inlier_mask1), "out of", len(y))
+    # logger.info("Number of inliers for line 2:", np.sum(inlier_mask2), "out of", len(X[outlier_mask1]))
+    logger.info(f"After rotation correction:")
+    logger.info(f"Line 1: y = {slope1:.3f}  x + {intercept1:.1f}")
+    logger.info(f"Line 2: y = {slope2:.3f}  x + {intercept2:.1f}") 
 
     points_1 = np.hstack((X[inlier_mask1], np.array(y[inlier_mask1]).reshape(-1,1)))
     points_2 = np.hstack((X[inlier_mask2], np.array(y[inlier_mask2]).reshape(-1,1)))
@@ -1373,6 +1425,13 @@ def Angle_Measurment(image,points, line_info, plot=False, verbose=False, image_n
         print(f"Line 2 slope: {line2_m:.3f}, intercept: {line2_b:.1f}")
         print(f"Angle of line 1 before quadrant adjustment: {Angle_line1:.1f}°")
         print(f"Angle of line 2 before quadrant adjustment: {Angle_line2:.1f}°")
+
+    logger.info(f"Intersection at x={x_intersect:.1f}, y={y_intersect:.1f}")
+    logger.info(f"Line 1 slope: {line1_m:.3f}, intercept: {line1_b:.1f}")
+    logger.info(f"Line 2 slope: {line2_m:.3f}, intercept: {line2_b:.1f}")
+    logger.info(f"Angle of line 1 before quadrant adjustment: {Angle_line1:.1f} degrees")
+    logger.info(f"Angle of line 2 before quadrant adjustment: {Angle_line2:.1f} degrees")
+
     # Adjust the angle based on which quadrant line 2 lies in
     line2_quadrant = None
     if line2_x_mean > x_intersect and line2_y_mean < y_intersect:
@@ -1448,8 +1507,19 @@ def Angle_Measurment(image,points, line_info, plot=False, verbose=False, image_n
         print(f"Line 1 quadrant counts: Q1={line1_quadrant_counts[0]}, Q2={line1_quadrant_counts[1]}, Q3={line1_quadrant_counts[2]}, Q4={line1_quadrant_counts[3]}")
         print(f"Line 2 quadrant counts: Q1={line2_quadrant_counts[0]}, Q2={line2_quadrant_counts[1]}, Q3={line2_quadrant_counts[2]}, Q4={line2_quadrant_counts[3]}")
         print(f"Line 2 lies in quadrant: {line2_quadrant}")
-        print(f"Line 1 angle = {Angle_line1:.2f}°, Line 2 angle = {Angle_line2:.2f}°")
+        print(f"Line 1 angle = {Angle_line1:.2f} degrees, Line 2 angle = {Angle_line2:.2f} degrees")
         print(f"Intersection point: ({x_intersect:.2f}, {y_intersect:.2f})")
+
+    logger.info("--------------------------------------------------")
+    logger.info(f"Total points: {len(points)}")
+    logger.info(f"Line 1 total points: {len(line1_points)}")
+    logger.info(f"Line 1 quadrant counts: Q1={line1_quadrant_counts[0]}, Q2={line1_quadrant_counts[1]}, Q3={line1_quadrant_counts[2]}, Q4={line1_quadrant_counts[3]}")
+    logger.info(f"Line 2 quadrant counts: Q1={line2_quadrant_counts[0]}, Q2={line2_quadrant_counts[1]}, Q3={line2_quadrant_counts[2]}, Q4={line2_quadrant_counts[3]}")
+    logger.info(f"Line 2 lies in quadrant: {line2_quadrant}")
+    logger.info(f"Line 1 angle = {Angle_line1:.2f} degrees, Line 2 angle = {Angle_line2:.2f} degrees")
+    logger.info(f"Intersection point: ({x_intersect:.2f}, {y_intersect:.2f})")
+    logger.info("--------------------------------------------------")
+    
 
     if plot:
         fig, ax = plt.subplots()
@@ -1537,6 +1607,8 @@ def Analyze_Image(image_file_name: str, plot_level:int=0, verbose_level:int = 1)
     if verbose:
         print(f"Time to process image {img_number}: {finish - start:.2f} seconds")
         print("Angle info:", Angle_info)
+    logging.info(f"Processed image {img_number} in {finish - start:.2f} seconds")
+    logging.info(f"Angle info: {Angle_info}")
 
     return Angle_info
 
@@ -1553,6 +1625,10 @@ def Analyze_Image_Simple(image_name):
     Returns:
     tuple: The angle of the main line with the horizontal axis and intersection point.
     """
+    ## setup logging
+
+
+
 
     angle_info =Analyze_Image(image_name, plot_level=1, verbose_level=0)
 
