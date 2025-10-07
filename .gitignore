@@ -20,3 +20,4 @@ code_trials/images/*
 # pycache and vscode
 __pycache__/
 .vscode/
+*.dll
