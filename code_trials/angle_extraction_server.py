@@ -1,9 +1,6 @@
 from flask import Flask, request, jsonify, send_file
 from angle_extraction import Analyze_Image_Simple, Analyze_Image
-import io
-import matplotlib
-matplotlib.use('Agg')  # Use a non-interactive backend
-import matplotlib.pyplot as plt
+
 import os
 from datetime import datetime
 
@@ -34,12 +31,17 @@ def analyze_image_with_plot(filename, save_plot=True):
         base_name = os.path.splitext(os.path.basename(filename))[0]
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         plot_filename = None
-        
+        plot_level=0
         if save_plot:
+            import io
+            import matplotlib
+            matplotlib.use('Agg')  # Use a non-interactive backend
+            import matplotlib.pyplot as plt
             plot_filename = os.path.join(plots_dir, f"{base_name}_{timestamp}_analysis.png")
-        
+            plot_level=1
         # Call Analyze_Image with plot_level=3 to generate plots
-        angle_info = Analyze_Image(filename, plot_level=3, verbose_level=0)
+
+        angle_info = Analyze_Image(filename, plot_level=plot_level, verbose_level=0)
         angle = angle_info[0] if angle_info else None
         
         if save_plot and plt.get_fignums():  # Check if any figures exist
@@ -58,11 +60,12 @@ def compute():
     # Get query parameters (?filename=...)
     filename = request.args.get("filename")
     save_plot = request.args.get("save_plot", "true").lower() == "true"
-    print(f"save_plot: {save_plot}")
+    
     if not filename:
         return jsonify({"error": "Missing 'filename' parameter"}), 400
 
     try:
+    
         angle, plot_filename = analyze_image_with_plot(filename, save_plot=save_plot)
         
         response_data = {

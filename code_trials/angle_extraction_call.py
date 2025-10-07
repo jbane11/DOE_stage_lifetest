@@ -15,10 +15,12 @@ if len(sys.argv) >1:
 if os.path.exists(filename):
     image_process_start= time.time()
 if len(sys.argv) >2: 
-    save_plot = args[1].lower() 
+    save_plot = args[1].lower()
+else:
+    save_plot = "true" 
 
-print(f"Filename to process: {filename}")
-print(f"Save plot: {save_plot}")
+# print(f"Filename to process: {filename}")
+# print(f"Save plot: {save_plot}")
 
 
 response = requests.get("http://127.0.0.1:5000/compute", params={"filename": filename, "save_plot": save_plot})
