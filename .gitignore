@@ -10,6 +10,7 @@ logs/
 images/
 images/*
 plots/*
+code_trials/*.png
 code_trials/images/*
 */*/*.png
 *?calibration/images/*
