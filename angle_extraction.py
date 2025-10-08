@@ -1584,8 +1584,8 @@ def Analyze_Image(image_file_name: str, plot_level:int=0, verbose_level:int = 1)
     if verbose_level > 2:
         verbose = True
 
-    Verticle_scan = vertical_scan_for_center_peaks(image, resolution=20, plot=plot, verbose=verbose)
-    Horizontal_scan = horizontal_scan_for_center_peaks(image, resolution=20, plot=plot, verbose=verbose)
+    Verticle_scan = vertical_scan_for_center_peaks(image, resolution=10, plot=plot, verbose=verbose)
+    Horizontal_scan = horizontal_scan_for_center_peaks(image, resolution=10, plot=plot, verbose=verbose)
 
     #stack the two scans to get the center
     Scan = np.vstack((Horizontal_scan,Verticle_scan))
