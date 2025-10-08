@@ -1,0 +1,26 @@
+# data and log files
+*.txt
+*.log
+*/logs/*.log
+logs/
+
+
+*.csv
+# images
+images/
+images/*
+plots/*
+code_trials/images/*
+code_trials/*.png
+
+*/*/*.png
+*?calibration/images/*
+*.jpg
+*.jpeg
+*.gif
+
+# pycache and vscode
+__pycache__/
+.vscode/
+*.dll
+*.png
