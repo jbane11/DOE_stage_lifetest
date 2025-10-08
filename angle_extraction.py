@@ -329,7 +329,12 @@ def horizontal_scan_for_center_peaks(image, resolution=50, center_info=None, plo
       ax.plot(cx, cy, 'ro', label='Circle Center')
       inner_circle = plt.Circle((cx, cy), inner_circle_rad, color='blue',
                           fill=False, linestyle='--', linewidth=1, label='Inner Boundary')
-      ax.add_artist(inner_circle) 
+      
+      tight_circle = plt.Circle((cx, cy), inner_circle_rad-15, color='red',
+                          fill=False, linestyle='--', linewidth=1, label='Inner Boundary')
+
+      ax.add_artist(inner_circle)
+      ax.add_artist(tight_circle)
       ax.grid()
 
 
@@ -360,6 +365,9 @@ def horizontal_scan_for_center_peaks(image, resolution=50, center_info=None, plo
         left_most = int(cx - np.sqrt(square_diff))
         right_most = int(cx + np.sqrt(square_diff))
 
+        top_most = V_limit[0]
+        bottom_most = V_limit[1]
+
         line_scan = full_scan.copy()
         left_value =line_scan[left_most+2]
         right_value=line_scan[right_most-2]
@@ -378,13 +386,13 @@ def horizontal_scan_for_center_peaks(image, resolution=50, center_info=None, plo
         # window_length must be odd and less than or equal to the size of line_scan
 
         line_scan_diff = np.gradient(full_scan )
-        line_scan_diff[:left_most+20]  = 0
-        line_scan_diff[right_most-20:] = 0
+        line_scan_diff[:left_most+10]  = 0
+        line_scan_diff[right_most-10:] = 0
 
         # print("line scan diff ::10",line_scan_diff[::10])
 
         # print("max diff",np.max(line_scan_diff), " min diff", np.min(line_scan_diff))
-        # print("Std dev", np.std(line_scan_diff))
+        if verbose: print("Std dev", np.std(line_scan_diff))
 
         
         window_length = 41
@@ -450,6 +458,19 @@ def horizontal_scan_for_center_peaks(image, resolution=50, center_info=None, plo
             top_two_indices = np.argsort(prominences)[-2:]
             peaks = peaks[top_two_indices]
 
+        #if the points radius is greater then the inner circle rad, drop them
+        if len(peaks) > 0:
+            valid_peaks = []
+            for peak in peaks:
+                dist_from_center = np.sqrt((peak - cx)**2 + (y - cy)**2)
+                if dist_from_center <= (inner_circle_rad-10):
+                    valid_peaks.append(peak)
+                else:
+                    if verbose:
+                        print(f"  Dropping peak at {peak} - outside inner circle")
+            peaks = np.array(valid_peaks)
+   
+
 
         All_peaks.append(np.column_stack((peaks, np.full_like(peaks, y))))
 
@@ -498,7 +519,10 @@ def vertical_scan_for_center_peaks(image, resolution=50, center_info=None, plot=
         if verbose:
             print(f"Line {j} at x={x}")
 
+
+ 
         full_scan = np.max(gray_image[:, x])-gray_image[:,x]
+        
         line_scan = full_scan.copy()
 
         # calculate top and bottom limits for the line scan useing circle equation
@@ -580,15 +604,25 @@ def vertical_scan_for_center_peaks(image, resolution=50, center_info=None, plot=
         peaks=[]
 
         peaks,peak_props = scipy.signal.find_peaks(smooth_scan,
-                                                width=[3,45],
-                                                prominence=14.5,
+                                                width=[3.7,45],
+                                                prominence=11.5,
                                                     height=1)
+        peaks1,peak_props1 = scipy.signal.find_peaks(smooth_scan,
+                                                width=[0.1,185],
+                                                prominence=0.1,
+                                                threshold=0.1,
+                                                    height=1)
+        
+        if len(peaks1)>0:
+            if plot > 1:
+                ax2.scatter(peaks1, line_scan[peaks1], color='orange', marker="x",
+                             s=50, label='Detected Peaks')
+            if verbose:
+                print(f"  Found {len(peaks1)} loose peaks at x-positions: {peaks1}")
+                for key in peak_props1:
+                    print(f"    {key}: {peak_props1[key]}")
 
-        # peaks1,peak_props1 = scipy.signal.find_peaks(smooth_scan,
-        #                                         width=[1,85],
-        #                                         prominence=4,
-        #                                         threshold=1,
-        #                                             height=1)
+
 
         if len(peaks)>0:
             if abs(peaks[0]-top_most)<20:
@@ -640,7 +674,17 @@ def vertical_scan_for_center_peaks(image, resolution=50, center_info=None, plot=
             prominences = peak_props['prominences']
             top_two_indices = np.argsort(prominences)[-2:]
             peaks = peaks[top_two_indices]
-
+                # check radius drop any near edge of circle
+        valid_peaks = []
+        for peak in peaks:
+            dist_from_center = np.sqrt((x - cx) ** 2 + (peak - cy) ** 2)
+            if dist_from_center < (inner_circle_rad - 10):
+                valid_peaks.append(peak)
+            else:
+                if verbose:
+                    print(f"  Removing peak at {peak} - too close to circle edge")
+        if len(valid_peaks) >0:
+            peaks = np.array(valid_peaks)
 
         All_peaks.append(np.column_stack((np.full_like(peaks, x), peaks)))
 
