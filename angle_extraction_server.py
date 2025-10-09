@@ -1,8 +1,11 @@
 from flask import Flask, request, jsonify, send_file
 from angle_extraction import Analyze_Image_Simple, Analyze_Image
-
+import matplotlib
+matplotlib.use('Agg')  # Use a non-interactive backend
+import matplotlib.pyplot as plt
 import os
 from datetime import datetime
+import io
 
 app = Flask(__name__)
 
@@ -33,10 +36,8 @@ def analyze_image_with_plot(filename, save_plot=True):
         plot_filename = None
         plot_level=0
         if save_plot:
-            import io
-            import matplotlib
-            matplotlib.use('Agg')  # Use a non-interactive backend
-            import matplotlib.pyplot as plt
+            
+
             plot_filename = os.path.join(plots_dir, f"{base_name}_{timestamp}_analysis.png")
             plot_level=1
         # Call Analyze_Image with plot_level=3 to generate plots
@@ -94,12 +95,15 @@ def get_plot(filename):
 # --- Ping route (health check) ---
 @app.route('/ping', methods=['GET'])
 def ping():
+    """Ping the flask server to check if it's running"""
     return jsonify({"status": "ok", "message": "Server is running"}), 200
 
 
 
 @app.route('/shutdown', methods=['GET','POST'])
 def shutdown():
+    """Shutdown the Flask server"""
+
     func = request.environ.get('werkzeug.server.shutdown')
     if func is None:
         raise RuntimeError('Not running with the Werkzeug Server')
@@ -107,7 +111,9 @@ def shutdown():
     return "Server shutting down..."
 
 if __name__ == "__main__":
-    
+    """
+    Start the Flask server to handle angle extraction requests.
+    """
 
     app.run(host="0.0.0.0", port=5000, debug=True,use_reloader=False)
 
