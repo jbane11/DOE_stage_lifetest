@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify, send_file
-from angle_extraction import Analyze_Image_Simple, Analyze_Image
+from angle_extraction import Analyze_Image_Simple, Analyze_Image_lifetest
 import matplotlib
 matplotlib.use('Agg')  # Use a non-interactive backend
 import matplotlib.pyplot as plt
@@ -42,7 +42,7 @@ def analyze_image_with_plot(filename, save_plot=True):
             plot_level=1
         # Call Analyze_Image with plot_level=3 to generate plots
 
-        angle_info = Analyze_Image(filename, plot_level=plot_level, verbose_level=0)
+        angle_info = Analyze_Image_lifetest(filename, plot_level=plot_level)
         angle = angle_info[0] if angle_info else None
         
         if save_plot and plt.get_fignums():  # Check if any figures exist
@@ -50,7 +50,7 @@ def analyze_image_with_plot(filename, save_plot=True):
             plt.savefig(plot_filename, dpi=150, bbox_inches='tight')
             plt.close('all')  # Close all figures to free memory
         
-        return angle, plot_filename
+        return angle, angle_info[1], angle_info[2], angle_info[3], plot_filename
         
     except Exception as e:
         plt.close('all')  # Make sure to close figures even on error
@@ -67,11 +67,16 @@ def compute():
 
     try:
     
-        angle, plot_filename = analyze_image_with_plot(filename, save_plot=save_plot)
-        
+        angle_info = analyze_image_with_plot(filename, save_plot=save_plot)
+
+        quality = 1 if angle_info[2] == True else 0
+
+        plot_filename = angle_info[4] if save_plot else None
         response_data = {
-            "filename": filename,
-            "angle": round(angle, 2) if angle is not None else None
+            "angle": round(angle_info[0], 2) if angle_info[0] is not None else None,
+            "uncertainty": round(angle_info[1], 3) if angle_info[1] is not None else None,
+            "quality": quality,
+            "overall_quality": round(angle_info[3], 2) if angle_info[3] is not None else None
         }
         
         if save_plot and plot_filename:

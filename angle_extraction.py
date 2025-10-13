@@ -1,4 +1,5 @@
 import pathlib, datetime, atexit
+from tabnanny import verbose
 import cv2
 import numpy as np
 from matplotlib import pyplot as plt
@@ -1138,6 +1139,7 @@ def two_line_fit_with_rotation(points:np.ndarray, plot=False, verbose=False):
     X_remaining = X[outlier_mask1]
     y_remaining = y[outlier_mask1]
     # Use RANSAC on remaining points for second line
+    
     ransac2 = RANSACRegressor(LinearRegression(), residual_threshold=5, random_state=1)
     ransac2.fit(X_remaining, y_remaining)
     inlier_mask2 = ransac2.inlier_mask_
@@ -1657,7 +1659,77 @@ def Analyze_Image(image_file_name: str, plot_level:int=0, verbose_level:int = 1)
     return Angle_info
 
 
+def Analyze_Image_with_assessment(image_file_name: str, plot_level:int=0, verbose_level:int = 1)-> tuple:
+    """
+    Analyze an image to return the angle of the main line with the horizontal axis. 
+    The angle is measured in degrees, with 0 degrees being horizontal and positive angles measured counter-clockwise.
+    Parameters:
+    image_file_name (str): Path to the image file. 
 
+
+    """
+
+
+    import time
+    plot = False
+    verbose = False
+    
+    start = time.time()
+    if not os.path.isfile(image_file_name):
+        print(f"Error: File {image_file_name} does not exist.")
+        return None
+        
+
+    image_number = os.path.splitext(os.path.basename(image_file_name))[0]
+    img_number = image_number[-5:]  # Extract the last 5 characters for img_number
+    image = cv2.imread(image_file_name)
+    if plot_level > 2:
+        plot = plot_level - 2
+    if verbose_level > 2:
+        verbose = True
+
+
+    Edges = horizontal_edges(image,resolution=50,plot=0,verbose=False)
+    circle_info = Center_Radius_iterations(peaks=Edges, max_iterations=10, threshold=0.02, plot=False, verbose=False)    
+
+    Verticle_scan = vertical_scan_for_center_peaks(image, resolution=10, center_info=circle_info, plot=plot, verbose=verbose)
+    Horizontal_scan = horizontal_scan_for_center_peaks(image, resolution=10, center_info=circle_info, plot=plot, verbose=verbose)
+
+    #stack the two scans to get the center
+    Scan = np.vstack((Horizontal_scan,Verticle_scan))
+
+    if plot_level > 1:
+        plot = True
+    if verbose_level > 1:
+        verbose = True
+    line_info = two_line_fit_with_rotation(Scan, plot=plot, verbose=verbose)
+
+    if plot_level > 0:
+        plot = True
+    if verbose_level > 0:
+        verbose = True
+
+    Angle_info=Angle_Measurment(image,Scan,line_info,plot=plot,verbose=verbose,image_number=img_number)
+    Angle=Angle_info[0]
+    fit_assessment = assess_fit_quality(Scan, line_info)
+    Angle_unc = angle_uncertainty_estimation(Scan, line_info)
+
+    if fit_assessment['quality'] == False:
+        if verbose:
+            print("Warning: Fit quality is poor, results may be unreliable")
+            logging.warning("Fit quality is poor, results may be unreliable")
+            Angle = correct_direction(Angle, Scan,circle_info=circle_info)
+
+
+
+    finish = time.time()
+    if verbose:
+        print(f"Time to process image {img_number}: {finish - start:.2f} seconds")
+        print("Angle info:", Angle_info)
+    logging.info(f"Processed image {img_number} in {finish - start:.2f} seconds")
+    logging.info(f"Angle info: {Angle_info}")
+
+    return Angle, Angle_unc, fit_assessment['quality'], fit_assessment['overall_quality']
 
 def Analyze_Image_Simple(image_name):
     """
@@ -1677,10 +1749,346 @@ def Analyze_Image_Simple(image_name):
     angle_info =Analyze_Image(image_name, plot_level=1, verbose_level=0)
 
     angle = angle_info[0]
+
+
     
 
     return np.round(angle,2)
+def Analyze_Image_lifetest(image_name, plot_level=0):
+    """
+    A full version of Analyze_Image with assessment and uncertatinty. 
+    Parameters:
+    image_name (str): Path to the image file.
+    Returns:
+    tuple: 
+    1. angle (float): The angle of the main line with the horizontal axis, rounded to 2 decimal places.
+    2. uncertainty (float): Estimated uncertainty of the angle measurement.
+    3. Assessment on quality of the fit (bool): True if the fit quality is acceptable, False otherwise.
+    4. Quantitative assessment of the fit. float between 0 and 1, with 1 being perfect fit.
+    """
+    
+    angle_info =Analyze_Image_with_assessment(image_name, plot_level=plot_level, verbose_level=0)       
+    
 
+    angle = angle_info[0]
+    uncertainty = angle_info[1]
+    quality = angle_info[2]
+    overall_quality = angle_info[3]
+
+    return np.round(angle,4), np.round(uncertainty,4), quality, np.round(overall_quality,2)
+
+#assess the goodness of angle meassurement
+## three main things to consider
+#1. The angle difference between the two lines, should be at least __ degrees
+#2. The intersection point should be within the certain range of the image
+#3. The coverage of the two lines, should cover at least __% of the points
+
+
+def assess_fit_quality(points, line_info, correct_intersection_point=(810, 710.), min_angle_diff=20, max_intersect_offset_ratio=0.25, min_coverage_ratio=0.6):
+
+    """
+    Assess the quality of the fit measurement based on line fitting results.
+
+    Parameters:
+    points (numpy.ndarray): A 2D array of shape (N, 2) where each row represents a point (x, y).
+    line_info (tuple): A tuple containing the slopes and intercepts of the two lines in the form (slope1, intercept1, slope2, intercept2).
+    image_shape (tuple): The shape of the image as (height, width).
+    min_angle_diff (float): Minimum acceptable angle difference between the two lines in degrees.
+    max_intersect_offset_ratio (float): Maximum acceptable ratio of intersection offset to image dimensions.
+    min_coverage_ratio (float): Minimum acceptable coverage ratio of points by the two lines.
+
+    Returns:
+    dict: A dictionary containing assessment results including angle difference, intersection offset, coverage ratio, and overall quality.
+    """
+    import numpy as np
+
+    slope1, intercept1, slope2, intercept2, points_line1, points_line2 = line_info
+
+    # Calculate angle difference
+    angle1_rad = np.arctan(slope1)
+    angle2_rad = np.arctan(slope2)
+    angle_diff_rad = np.abs(angle1_rad - angle2_rad)
+    angle_diff_deg = np.rad2deg(angle_diff_rad)
+
+    angle_seperation_value = 35.1
+    angle_seperation_acceptance = 5
+    angle_sep_assessment_range= 10
+
+    if angle_diff_deg > 90:
+        angle_diff_deg = 180 - angle_diff_deg
+
+    # Calculate intersection point
+    intersect_x = (intercept2 - intercept1) / (slope1 - slope2)
+    intersect_y = slope1 * intersect_x + intercept1
+
+    #calculate the offset from the correct intersection point
+    intersect_offset = np.sqrt((intersect_x - correct_intersection_point[0])**2 + (intersect_y - correct_intersection_point[1])**2)
+    intersect_offset_max = 100
+    intersect_offset_range = 25 
+
+
+
+
+
+    # Calculate coverage ratio
+    points = np.array(points)
+    total_points = len(points)
+
+    def point_to_line_distance(point, slope, intercept):
+        x0, y0 = point
+        return np.abs(slope * x0 - y0 + intercept) / np.sqrt(slope**2 + 1)
+    threshold_distance = 4  # Distance threshold to consider a point as covered by the line
+    covered_by_line1 = np.sum([point_to_line_distance(pt, slope1, intercept1) < threshold_distance for pt in points])
+    covered_by_line2 = np.sum([point_to_line_distance(pt, slope2, intercept2) < threshold_distance for pt in points])
+    total_covered = covered_by_line1 + covered_by_line2 # Note: This may double count points covered by both lines
+    coverage_ratio = total_covered / total_points if total_points > 0 else 0    
+    # Overall quality assessment
+
+    #anlge correctness and assessment
+    Correct_angle_seperation = (angle_diff_deg > (angle_seperation_value - angle_seperation_acceptance)) and (angle_diff_deg < (angle_seperation_value + angle_seperation_acceptance))
+
+    # this assessment should decrease quickly as the angle deviates from the ideal seperation value
+    angle_assessment_square = abs(angle_diff_deg - angle_seperation_value)**2/(angle_sep_assessment_range**2)
+
+    angle_assessment =max(0, 1 - angle_assessment_square)
+
+    #intersection correctness and assessment
+    Correct_intersection = intersect_offset <= intersect_offset_max
+    intersection_assessment = min(1.0,max(0, (( intersect_offset_max-(intersect_offset-intersect_offset_range))) / intersect_offset_max))
+    
+    #covage correctness and assessment
+    Correct_coverage = coverage_ratio >= min_coverage_ratio
+    coverage_assessment =  1-np.abs(min((coverage_ratio-0.90),0))/(0.90-min_coverage_ratio)
+
+
+    overall_quality = (angle_assessment + intersection_assessment*0.4 + coverage_assessment) / 2.4
+
+    quality = Correct_intersection and Correct_coverage and Correct_angle_seperation
+
+    return {
+        "angle_difference": round(angle_diff_deg,3),
+        "angle_assessment": round(angle_assessment,3),
+        "correct_angle": Correct_angle_seperation,
+        "intersection_offset": round(intersect_offset,3),
+        "intersection_assessment": round(intersection_assessment,3),
+        "correct_intersection": Correct_intersection,
+        "coverage_ratio": round(coverage_ratio,3),
+        "coverage_assessment": round(coverage_assessment,3),
+        "correct_coverage": Correct_coverage,
+        "overall_quality": round(overall_quality,3),
+        "quality": quality
+    }       
+
+
+
+def angle_uncertainty_estimation(points, line_info, verbose=0, angle_measured=32.0):
+    """
+    Estimate the uncertainty in the angle measurement based on line fitting results.
+
+    Parameters:
+    points (numpy.ndarray): A 2D array of shape (N, 2) where each row represents a point (x, y).
+    line_info (tuple): A tuple containing the slopes and intercepts of the two lines in the form (slope1, intercept1, slope2, intercept2).
+    angle_measured (float): The measured angle between the main line and the horizontal axis in degrees.
+
+    Returns:
+    float: Estimated uncertainty in the angle measurement in degrees.
+    """
+    import numpy as np
+
+    slope1, intercept1, slope2, intercept2, points_line1, points_line2 = line_info
+
+    # Calculate residuals for line 1
+    def calculate_residuals(points, slope, intercept):
+        x = points[:, 0]
+        y = points[:, 1]
+        y_pred = slope * x + intercept
+        residuals = y - y_pred
+        return residuals
+
+    residuals_line1 = calculate_residuals(points_line1, slope1, intercept1)
+    residuals_line2 = calculate_residuals(points_line2, slope2, intercept2)
+
+    # print(f"Number of points Line 1: {len(points_line1)}")
+    # print(f"line 1 residuals: {residuals_line1}")
+    # print(f"Residuals Line 1: Mean={np.mean(residuals_line1):.3f}, Std={np.std(residuals_line1):.3f}")
+
+    ## refit with only points with positive residuals
+    positive_residuals_mask1 = residuals_line1 > 0
+    points_line1_positive = points_line1[positive_residuals_mask1]
+    if len(points_line1_positive) >= 2:
+        slope1_pos, intercept1_pos = np.polyfit(points_line1_positive[:, 0], points_line1_positive[:, 1], 1)
+        residuals_line1_pos = calculate_residuals(points_line1_positive, slope1_pos, intercept1_pos)
+        # print(f"Positive Residuals Line 1: Mean={np.mean(residuals_line1_pos):.3f}, Std={np.std(residuals_line1_pos):.3f}")
+    else:
+        slope1_pos, intercept1_pos = slope1, intercept1
+        residuals_line1_pos = residuals_line1
+        # print("Not enough positive residuals for line 1 to refit.")
+    # refit with only points with negative residuals
+    negative_residuals_mask1 = residuals_line1 < 0
+    points_line1_negative = points_line1[negative_residuals_mask1]
+    if len(points_line1_negative) >= 2:
+        slope1_neg, intercept1_neg = np.polyfit(points_line1_negative[:, 0], points_line1_negative[:, 1], 1)
+        residuals_line1_neg = calculate_residuals(points_line1_negative, slope1_neg, intercept1_neg)
+        # print(f"Negative Residuals Line 1: Mean={np.mean(residuals_line1_neg):.3f}, Std={np.std(residuals_line1_neg):.3f}")
+    else:
+        slope1_neg, intercept1_neg = slope1, intercept1
+        residuals_line1_neg = residuals_line1
+        # print("Not enough negative residuals for line 1 to refit.")
+    if verbose:
+        print(f"Positive fit line 1: y = {slope1_pos:.5f}x + {intercept1_pos:.1f}")
+        print(f"Negative fit line 1: y = {slope1_neg:.5f}x + {intercept1_neg:.1f}")
+        print(f"Original fit line 1: y = {slope1:.5f}x + {intercept1:.1f}")
+
+
+    # Standard deviation of residuals
+    std_residuals_line1 = np.std(residuals_line1) if len(residuals_line1) > 0 else 0
+    std_residuals_line2 = np.std(residuals_line2) if len(residuals_line2) > 0 else 0
+
+    # Number of points used in each line fit
+    n_points_line1 = len(points_line1)
+    n_points_line2 = len(points_line2)
+
+    # Basic uncertainty estimation based on residuals and number of points
+    # uncertainty_line1 = std_residuals_line1 / np.sqrt(n_points_line1) if n_points_line1 > 0 else float('inf')
+    # uncertainty_line2 = std_residuals_line2 / np.sqrt(n_points_line2) if n_points_line2 > 0 else float('inf')
+
+    uncertainty_line1 = (np.abs(slope1 - slope1_pos) + np.abs(slope1 - slope1_neg))
+
+    # Combine uncertainties from both lines
+    #combined_uncertainty = np.sqrt(uncertainty_line1**2 + uncertainty_line2**2)
+
+    # Convert to angle uncertainty (in degrees)
+    angle_uncertainty = np.rad2deg(np.arctan(uncertainty_line1))  # Approximation for small angles
+
+    return angle_uncertainty
+
+
+def correct_direction(angle,points,circle_info, line_info,verbose=False):
+    """
+    Makes sure the main line points in the correct direction.
+    Parameters:
+    angle (float): The angle in degrees.
+    points (numpy.ndarray): A 2D array of shape (N, 2) where each row represents a point (x, y).
+
+    Returns:
+    float: The corrected angle within [0, 360) degrees.
+    """
+
+
+    # Check which half of the image the points are in excluding the line1 points
+    line1_points = line_info[4]
+    center_x = circle_info[0]
+    center_y = circle_info[1]
+
+    mask = np.ones(len(points), dtype=bool)
+    for pt in line1_points:
+        mask &= ~np.all(points == pt, axis=1)   
+
+    other_points = points[mask]
+    mean_y = np.mean(other_points[:, 1])
+    mean_x = np.mean(other_points[:, 0])
+
+
+    
+
+    if mean_y < center_y and mean_x > center_x:
+        # First quadrant
+        if angle > 315 or angle <= 56:
+            corrected_angle = angle
+        else:
+            if verbose: print("Correcting angle for Q1")
+            corrected_angle = (angle - 180)
+    elif mean_y < center_y and mean_x < center_x:
+        if angle >50 and angle <= 155:
+            corrected_angle = angle
+        else:
+            if verbose: print("Correcting angle for Q2")
+            corrected_angle = (angle + 180)
+    elif mean_y > center_y and mean_x < center_x:
+        if angle > 145 and angle <= 235:
+            corrected_angle = angle
+        else:
+            if verbose: print("Correcting angle for Q3")
+            corrected_angle = (angle + 180)
+    elif mean_y > center_y and mean_x > center_x:
+        if angle > 235 and angle <= 335:
+            corrected_angle = angle
+        else:
+            if verbose: print("Correcting angle for Q4")
+            corrected_angle = (angle + 180)
+
+    return corrected_angle %360
+
+
+
+def refit_for_line_2(points, line_info, plot=False, verbose=False):
+    """
+    Refit line 2 removing all points use in line1. 
+
+    Parameters:
+    points (numpy.ndarray): A 2D array of shape (N, 2)
+    line_info (tuple): A tuple containing the slopes and intercepts of the two lines in the form (slope1, intercept1, slope2, intercept2, points_line1, points_line2).
+    plot (bool): If True, plot the data points and the fitted lines.
+    verbose (bool): If True, print additional information during processing.
+
+    """
+    
+
+    slope1, intercept1, slope2, intercept2, points_line1, points_line2 = line_info
+
+    # Calculate residuals for line 2
+    mask = np.ones(len(points), dtype=bool)
+    for pt in points_line1:
+        mask &= ~np.all(points == pt, axis=1)
+
+    new_points = points[mask]
+
+    #rotate points by 15 degrees
+    angle_rad = np.deg2rad(15)
+    rotation_matrix = np.array([[np.cos(angle_rad), -np.sin(angle_rad)],
+                                [np.sin(angle_rad),  np.cos(angle_rad)]])
+    rotated_points = new_points @ rotation_matrix.T
+    X_rot = rotated_points[:, 0].reshape(-1, 1)
+    y_rot = rotated_points[:, 1]
+
+    # Fit line 2 to the remaining points
+    ransac = RANSACRegressor(residual_threshold=4, min_samples=2)
+    ransac.fit(X_rot, y_rot)
+    slope2_new_rotated = ransac.estimator_.coef_[0]
+    intercept2_new_rotated = ransac.estimator_.intercept_ 
+    inlier_mask2_new = ransac.inlier_mask_
+    outlier_mask2_new = np.logical_not(inlier_mask2_new)   
+
+    #rotate back the line
+    inv_rotation_matrix = np.array([[np.cos(-angle_rad), -np.sin(-angle_rad)],
+                                    [np.sin(-angle_rad),  np.cos(-angle_rad)]])
+
+    slope2_new = (slope2_new_rotated * inv_rotation_matrix[0,0] + intercept2_new_rotated * inv_rotation_matrix[0,1]) / (slope2_new_rotated * inv_rotation_matrix[1,0] + intercept2_new_rotated * inv_rotation_matrix[1,1])
+    intercept2_new = intercept2_new_rotated * inv_rotation_matrix[1,1] - slope2_new * inv_rotation_matrix[0,1]       
+
+    if verbose:
+        print(f"Refit line 2: y = {slope2_new:.5f}x + {intercept2_new:.1f}")
+        print(f"Number of inliers for refit line 2: {np.sum(inlier_mask2_new)} out of {len(y_rot)}")
+
+
+    line_2 = (slope2_new, intercept2_new, points_line2)
+    if plot:
+        fig, ax = plt.subplots()
+        x = np.arange(rotated_points[:,0].min(), rotated_points[:,0].max(), 0.1)
+        y = slope2_new * x + intercept2_new
+        ax.plot(x, y, "r--", label="Refit Line 2")
+
+        ax.scatter(new_points[:,0], new_points[:,1], c="gray", s=10, alpha= 0.5,label="data points")
+        ax.scatter(rotated_points[inlier_mask2_new,0], rotated_points[inlier_mask2_new,1],
+                    marker="o",c="b", s=20, label="data_line2")
+
+        # line2_x = np.arange(rotated_points[inlier_mask2_new,0].min(),rotated_points[inlier_mask2_new,0].max(),0.1)
+        # line2_y = slope2_new * line2_x + intercept2_new
+        # ax.plot(line2_x, line2_y, "b-", label="Line 2 fit")
+        ax.set_title(f"Refit Line 2 after removing Line 1 points")
+        ax.yaxis.set_inverted(True)
+        ax.grid()
+        ax.legend()
 
 
 
