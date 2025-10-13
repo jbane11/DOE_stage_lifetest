@@ -1,0 +1,65 @@
+# README for angle extraction software for DOE Analyze_Image_lifetest
+
+This is broken down into three main scripts. 
+
+
+-----------------------------------------
+angle_extraction_server.py
+
+analyze_image_with_plot( filename: str, save_plot: bool) -> tuple:
+
+    This is the main function that will be called by the flask server. It takes in a filename and a boolean to save the plot or not. It returns a tuple of the angle, absolute unceertainty, boolean of fitting success, and an assessment value of the fit.
+    It returns a tuple of the angle, absolute unceertainty, boolean of fitting success, and an assessment value of the fit
+
+
+flask - route "/compute"
+    This is the main route that will be called by the client. It takes in a filename and a boolean to save the plot or not. It returns a JSON object with the angle, absolute unceertainty, boolean of fitting success, and an assessment value of the fit.
+    It calls the analyze_image_with_plot function and returns the result as a JSON object.
+    Example JSON response:
+    {
+        "angle": 45.0,
+        "absolute_uncertainty": 5.0,
+        "fit_success": true,
+        "fit_assessment": 0.95
+    }
+
+flask - route "/plot/<filename>"
+    This route is used to serve the plot image if save_plot is True. It takes in a filename and returns the plot image as a PNG file.
+
+flask - route "/ping"
+    This route is used to check if the server is running. It returns a simple "pong" message.
+
+flask - route "/shutdown"
+    This route is used to shut down the server. It returns a simple message confirming the shutdown.
+    This is still a WIP. I have seen some issues with it not shutting down properly.
+    It is recommended to use Ctrl+C to stop the server for now, or something similar.
+-------------------------------------------
+
+
+angle_extraction_call.py
+    This is a simple script to call the flask server and get the angle and uncertainty. It takes in a filename and a boolean to save the plot or not. It prints out the angle, absolute unceertainty, boolean of fitting success, and an assessment value of the fit.
+    Example usage:
+    python angle_extraction_call.py --filename "path/to/image.png" --save_plot True
+    
+    Example output:
+    Angle: 45.0 degrees
+    Absolute Uncertainty: 5.0 degrees
+    Fit Success: True
+    Fit Assessment: 0.95
+
+
+-------------------------------------------
+
+angle_extraction.py
+    This is the main script that contains the Analyze_Image_lifetest function. It takes in a filename and a boolean to save the plot or not. It returns a tuple of the angle, absolute unceertainty, boolean of fitting success, and an assessment value of the fit.
+    It also contains several helper functions to process the image, fit the data, and calculate the angle and uncertainty.
+    The main function is Analyze_Image_lifetest(filename: str, save_plot: bool) -> tuple:
+    Example usage:
+    angle, abs_uncertainty, fit_success, fit_assessment = Analyze_Image_lifetest("path/to/image.png", True)
+    
+    Example output:
+    Angle: 45.0 degrees
+    Absolute Uncertainty: 5.0 degrees
+    Fit Success: True
+    Fit Assessment: 0.95
+

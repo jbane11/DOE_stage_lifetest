@@ -9,11 +9,7 @@ import io
 
 app = Flask(__name__)
 
-def main(filename):
-    
-    return Analyze_Image_Simple(filename)
-
-def analyze_image_with_plot(filename, save_plot=True):
+def analyze_image_with_plot(filename: str, save_plot: bool = True) -> tuple:
     """
     Analyze image and optionally save plot to file
     
