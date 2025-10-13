@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify, send_file
 from angle_extraction import Analyze_Image_Simple, Analyze_Image_lifetest
 from basler_capture import take_picture
+import basler_capture as bc
 import matplotlib
 matplotlib.use('Agg')  # Use a non-interactive backend
 import matplotlib.pyplot as plt
@@ -9,6 +10,11 @@ from datetime import datetime
 import io
 
 app = Flask(__name__)
+
+
+# class for camera object
+camera = None        
+
 
 def analyze_image_with_plot(filename: str, save_plot: bool = True) -> tuple:
     """
@@ -102,7 +108,7 @@ def ping():
 
 
 # --- use basler camera to take a picture ---
-@app.route('/take_picture', methods=['GET'])
+@app.route('/take_single_picture', methods=['GET'])
 def take_picture_server():
     
     plots_dir = "plots"
@@ -125,6 +131,31 @@ def remove_picture(filename):
     os.remove(filename)
     return jsonify({"status": "ok", "message": "Picture removed"}), 200
 
+
+@app.route('/setup_camera', methods=['GET'])
+def setup_camera():
+    """Setup the Basler camera"""
+    global camera
+    camera = bc.setup_camera()
+    if camera:
+        return jsonify({"status": "ok", "message": "Camera setup complete"}), 200
+    else:
+        return jsonify({"status": "error", "message": "Camera setup failed"}), 500
+
+@app.route('/close_camera', methods=['GET'])
+def close_camera():
+    global camera
+    """Close the Basler camera"""
+    bc.close_camera(camera)
+    return jsonify({"status": "ok", "message": "Camera closed"}), 200
+
+@app.route('/capture_image', methods=['GET'])
+def capture_image():
+    """Capture an image from the Basler camera, the camera will need to be setup first"""
+    global camera
+    filename = request.args.get("filename", "captured_image.png")
+    bc.capture_image(camera, filename)
+    return jsonify({"status": "ok", "message": "Image captured", "filename": filename}), 200
 
 @app.route('/shutdown', methods=['GET','POST'])
 def shutdown():

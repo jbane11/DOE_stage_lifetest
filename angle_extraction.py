@@ -1713,12 +1713,13 @@ def Analyze_Image_with_assessment(image_file_name: str, plot_level:int=0, verbos
     Angle=Angle_info[0]
     fit_assessment = assess_fit_quality(Scan, line_info)
     Angle_unc = angle_uncertainty_estimation(Scan, line_info)
-
+    if verbose:
+        print("Fit assessment:", fit_assessment)
     if fit_assessment['quality'] == False:
         if verbose:
             print("Warning: Fit quality is poor, results may be unreliable")
             logging.warning("Fit quality is poor, results may be unreliable")
-            Angle = correct_direction(Angle, Scan,circle_info=circle_info)
+        Angle = correct_direction(Angle, Scan,circle_info=circle_info,line_info=line_info)
 
 
 
@@ -1754,7 +1755,7 @@ def Analyze_Image_Simple(image_name):
     
 
     return np.round(angle,2)
-def Analyze_Image_lifetest(image_name, plot_level=0):
+def Analyze_Image_lifetest(image_name, plot_level=0,verbose_level=0):
     """
     A full version of Analyze_Image with assessment and uncertatinty. 
     Parameters:
@@ -1766,9 +1767,8 @@ def Analyze_Image_lifetest(image_name, plot_level=0):
     3. Assessment on quality of the fit (bool): True if the fit quality is acceptable, False otherwise.
     4. Quantitative assessment of the fit. float between 0 and 1, with 1 being perfect fit.
     """
-    
-    angle_info =Analyze_Image_with_assessment(image_name, plot_level=plot_level, verbose_level=0)       
-    
+
+    angle_info =Analyze_Image_with_assessment(image_name, plot_level=plot_level, verbose_level=verbose_level)
 
     angle = angle_info[0]
     uncertainty = angle_info[1]
@@ -1988,7 +1988,7 @@ def correct_direction(angle,points,circle_info, line_info,verbose=False):
     mean_x = np.mean(other_points[:, 0])
 
 
-    log_Str = ""
+    log_str = ""
 
     if mean_y < center_y and mean_x > center_x:
         # First quadrant

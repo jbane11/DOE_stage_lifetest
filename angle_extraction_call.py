@@ -22,7 +22,7 @@ args = arparser.parse_args()
 
 
 if args.camera:
-    response = requests.get("http://127.0.0.1:5000/take_picture")
+    response = requests.get("http://127.0.0.1:5000/capture_image")
     result = response.json()
     if "filename" in result:
         filename = result["filename"]
