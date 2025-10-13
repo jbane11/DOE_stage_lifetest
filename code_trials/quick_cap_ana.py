@@ -12,7 +12,7 @@ except ImportError:
 
 
 
-for i in range(100):
+for i in range(20):
     # Create an instant camera object with the camera device found first
     camera = pylon.InstantCamera(pylon.TlFactory.GetInstance().CreateFirstDevice())
 
@@ -33,15 +33,19 @@ for i in range(100):
             img = image.GetArray()
             from PIL import Image
             img_pil = Image.fromarray(img)
-            img_pil.save("basler_capture.png")
-            print("Image captured and saved as basler_capture.png")
+            timestamp = time.strftime("%Y%m%d_%H%M%S")
+            file_name = f"images/basler_capture_{timestamp}.png"
+            img_pil.save(file_name)
+            print(f"Image captured and saved as {file_name} ")
         else:
             print("Error: ", grabResult.ErrorCode, grabResult.ErrorDescription)
         grabResult.Release()
     camera.Close()
-
-    aex.Analyze_Image("basler_capture.png",plot_level=1,verbose_level=0)
+    #add timestamp to filename
+    
+    
+    aex.Analyze_Image(file_name,plot_level=1,verbose_level=0)
     plt.show()
-    time.sleep(0.1)
+    # time.sleep(0.5)
     plt.close('all')
     
