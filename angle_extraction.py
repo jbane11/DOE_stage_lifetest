@@ -1939,7 +1939,6 @@ def angle_uncertainty_estimation(points, line_info, verbose=0, angle_measured=32
         print(f"Negative fit line 1: y = {slope1_neg:.5f}x + {intercept1_neg:.1f}")
         print(f"Original fit line 1: y = {slope1:.5f}x + {intercept1:.1f}")
 
-
     # Standard deviation of residuals
     std_residuals_line1 = np.std(residuals_line1) if len(residuals_line1) > 0 else 0
     std_residuals_line2 = np.std(residuals_line2) if len(residuals_line2) > 0 else 0
@@ -1989,33 +1988,39 @@ def correct_direction(angle,points,circle_info, line_info,verbose=False):
     mean_x = np.mean(other_points[:, 0])
 
 
-    
+    log_Str = ""
 
     if mean_y < center_y and mean_x > center_x:
         # First quadrant
         if angle > 315 or angle <= 56:
             corrected_angle = angle
         else:
-            if verbose: print("Correcting angle for Q1")
+            # if verbose: print("Correcting angle for Q1")
+            log_str = "Correcting angle for Q1"
             corrected_angle = (angle - 180)
     elif mean_y < center_y and mean_x < center_x:
         if angle >50 and angle <= 155:
             corrected_angle = angle
         else:
-            if verbose: print("Correcting angle for Q2")
+            # if verbose: print("Correcting angle for Q2")
+            log_str = "Correcting angle for Q2"
             corrected_angle = (angle + 180)
     elif mean_y > center_y and mean_x < center_x:
         if angle > 145 and angle <= 235:
             corrected_angle = angle
         else:
-            if verbose: print("Correcting angle for Q3")
+            # if verbose: print("Correcting angle for Q3")
+            log_str = "Correcting angle for Q3"
             corrected_angle = (angle + 180)
     elif mean_y > center_y and mean_x > center_x:
         if angle > 235 and angle <= 335:
             corrected_angle = angle
         else:
-            if verbose: print("Correcting angle for Q4")
+            # if verbose: print("Correcting angle for Q4")
+            log_str = "Correcting angle for Q4"
             corrected_angle = (angle + 180)
+
+    logger.info("Direction correction applied: " + log_str)
 
     return corrected_angle %360
 
