@@ -103,7 +103,7 @@ def ping():
 
 # --- use basler camera to take a picture ---
 @app.route('/take_picture', methods=['GET'])
-def take_picture():
+def take_picture_server():
     
     plots_dir = "plots"
     if not os.path.exists(plots_dir):

@@ -1,5 +1,5 @@
 #Baser camera capture and connection code. 
-import pylon    
+from pypylon import pylon  
 
 
 #connect to camera and take picture.
@@ -30,6 +30,7 @@ def take_picture(camera=None,filename="basler_capture.png"):
             print("Error: ", grabResult.ErrorCode, grabResult.ErrorDescription)
         grabResult.Release()
     camera.Close()
+    return filename
 
 
 def close_camera(camera):

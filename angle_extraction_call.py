@@ -39,6 +39,13 @@ response = requests.get("http://127.0.0.1:5000/compute", params={"filename": fil
 result = response.json()
 print(result)
 
+if args.camera:
+    ## remove image file after use
+    if os.path.exists(filename):
+        os.remove(filename)
+        print(f"Removed temporary image file: {filename}")
+    
+
 # If a plot was saved, print the information
 if "plot_saved" in result:
     print(f"Plot saved to: {result['plot_saved']}")
