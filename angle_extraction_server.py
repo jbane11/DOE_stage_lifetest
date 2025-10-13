@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify, send_file
-from angle_extraction import Analyze_Image_Simple, Analyze_Image
+from angle_extraction import Analyze_Image_Simple, Analyze_Image_lifetest
+from basler_capture import take_picture
 import matplotlib
 matplotlib.use('Agg')  # Use a non-interactive backend
 import matplotlib.pyplot as plt
@@ -9,11 +10,7 @@ import io
 
 app = Flask(__name__)
 
-def main(filename):
-    
-    return Analyze_Image_Simple(filename)
-
-def analyze_image_with_plot(filename, save_plot=True):
+def analyze_image_with_plot(filename: str, save_plot: bool = True) -> tuple:
     """
     Analyze image and optionally save plot to file
     
@@ -42,7 +39,7 @@ def analyze_image_with_plot(filename, save_plot=True):
             plot_level=1
         # Call Analyze_Image with plot_level=3 to generate plots
 
-        angle_info = Analyze_Image(filename, plot_level=plot_level, verbose_level=0)
+        angle_info = Analyze_Image_lifetest(filename, plot_level=plot_level)
         angle = angle_info[0] if angle_info else None
         
         if save_plot and plt.get_fignums():  # Check if any figures exist
@@ -50,7 +47,7 @@ def analyze_image_with_plot(filename, save_plot=True):
             plt.savefig(plot_filename, dpi=150, bbox_inches='tight')
             plt.close('all')  # Close all figures to free memory
         
-        return angle, plot_filename
+        return angle, angle_info[1], angle_info[2], angle_info[3], plot_filename
         
     except Exception as e:
         plt.close('all')  # Make sure to close figures even on error
@@ -67,11 +64,16 @@ def compute():
 
     try:
     
-        angle, plot_filename = analyze_image_with_plot(filename, save_plot=save_plot)
-        
+        angle_info = analyze_image_with_plot(filename, save_plot=save_plot)
+
+        quality = 1 if angle_info[2] == True else 0
+
+        plot_filename = angle_info[4] if save_plot else None
         response_data = {
-            "filename": filename,
-            "angle": round(angle, 2) if angle is not None else None
+            "angle": round(angle_info[0], 2) if angle_info[0] is not None else None,
+            "uncertainty": round(angle_info[1], 3) if angle_info[1] is not None else None,
+            "quality": quality,
+            "overall_quality": round(angle_info[3], 2) if angle_info[3] is not None else None
         }
         
         if save_plot and plot_filename:
@@ -98,6 +100,30 @@ def ping():
     """Ping the flask server to check if it's running"""
     return jsonify({"status": "ok", "message": "Server is running"}), 200
 
+
+# --- use basler camera to take a picture ---
+@app.route('/take_picture', methods=['GET'])
+def take_picture():
+    
+    plots_dir = "plots"
+    if not os.path.exists(plots_dir):
+        os.makedirs(plots_dir)
+        
+    # Get base filename for plot naming
+    base_name = "basler_camera"
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    plot_filename = os.path.join(plots_dir, f"{base_name}_{timestamp}.png")
+  
+    take_picture(filename=plot_filename)
+    return jsonify({"filename": plot_filename}), 200
+
+
+@app.route('/remove_picture', methods=['GET'])
+def remove_picture(filename):
+    """Remove the most recent picture taken by the basler camera"""
+    os.remove(filename)
+    return jsonify({"status": "ok", "message": "Picture removed"}), 200
 
 
 @app.route('/shutdown', methods=['GET','POST'])
