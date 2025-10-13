@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify, send_file
 from angle_extraction import Analyze_Image_Simple, Analyze_Image_lifetest
+from basler_capture import take_picture
 import matplotlib
 matplotlib.use('Agg')  # Use a non-interactive backend
 import matplotlib.pyplot as plt
@@ -99,6 +100,30 @@ def ping():
     """Ping the flask server to check if it's running"""
     return jsonify({"status": "ok", "message": "Server is running"}), 200
 
+
+# --- use basler camera to take a picture ---
+@app.route('/take_picture', methods=['GET'])
+def take_picture():
+    
+    plots_dir = "plots"
+    if not os.path.exists(plots_dir):
+        os.makedirs(plots_dir)
+        
+    # Get base filename for plot naming
+    base_name = "basler_camera"
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    plot_filename = os.path.join(plots_dir, f"{base_name}_{timestamp}.png")
+  
+    take_picture(filename=plot_filename)
+    return jsonify({"filename": plot_filename}), 200
+
+
+@app.route('/remove_picture', methods=['GET'])
+def remove_picture(filename):
+    """Remove the most recent picture taken by the basler camera"""
+    os.remove(filename)
+    return jsonify({"status": "ok", "message": "Picture removed"}), 200
 
 
 @app.route('/shutdown', methods=['GET','POST'])

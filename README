@@ -1,6 +1,6 @@
 # README for angle extraction software for DOE Analyze_Image_lifetest
 
-This is broken down into three main scripts. 
+This is broken down into four main scripts. 
 
 
 -----------------------------------------
@@ -33,6 +33,16 @@ flask - route "/shutdown"
     This route is used to shut down the server. It returns a simple message confirming the shutdown.
     This is still a WIP. I have seen some issues with it not shutting down properly.
     It is recommended to use Ctrl+C to stop the server for now, or something similar.
+
+
+flask - route "/take_picture"
+    This route is used to take a picture using the connected camera. It saves the image to a predefined location and returns the filename.
+    This is still a WIP. 
+
+flask - route "/remove_picture"
+    This route is used to remove the file - filename
+    This is still a WIP.
+
 -------------------------------------------
 
 
