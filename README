@@ -4,7 +4,7 @@ This is broken down into four main scripts.
 
 
 -----------------------------------------
-angle_extraction_server.py
+angle_extraction_server.py -- this is the main flask server that will handle requests from the client. It has several routes to handle different requests.
 
 analyze_image_with_plot( filename: str, save_plot: bool) -> tuple:
 
@@ -35,13 +35,31 @@ flask - route "/shutdown"
     It is recommended to use Ctrl+C to stop the server for now, or something similar.
 
 
-flask - route "/take_picture"
+flask - route "/take_single_picture"
     This route is used to take a picture using the connected camera. It saves the image to a predefined location and returns the filename.
-    This is still a WIP. 
+    This is completed via the take_picture() function in basler_capture.py
+    This will connect and setup the camera for each call. Not recommended, for continues use.     This is still a WIP. 
+
 
 flask - route "/remove_picture"
     This route is used to remove the file - filename
     This is still a WIP.
+
+
+flask - route "/setup_camera"
+    This route is used to setup the camera. It initializes the camera and prepares it for taking pictures.
+    This is completed by calling the setup_camera() function in basler_capture.py
+    
+flask - route "/close_camera"
+    This route is used to close the camera connection. It releases the camera resources.
+    This is completed by calling the close_camera() function in basler_capture.py
+
+flask - route "/capture_image"
+    This route is used to take a picture using the connected camera. It saves the image to a predefined location and returns the filename.
+    This is completed via the take_picture() function in basler_capture.py
+    This will use the already setup camera. Make sure to run setup_camera first. 
+    Recommended for continuous use.
+    
 
 -------------------------------------------
 
@@ -49,7 +67,19 @@ flask - route "/remove_picture"
 angle_extraction_call.py
     This is a simple script to call the flask server and get the angle and uncertainty. It takes in a filename and a boolean to save the plot or not. It prints out the angle, absolute unceertainty, boolean of fitting success, and an assessment value of the fit.
     Example usage:
-    python angle_extraction_call.py --filename "path/to/image.png" --save_plot True
+    python angle_extraction_call.py 
+        --camera --save_plot 
+    or
+    python angle_extraction_call.py 
+        --filename "path/to/image.png" --save_plot
+
+    If you use --camera, it will take a picture using the connected camera and analyze that image.
+    If you use --filename, it will analyze the specified image file.
+    If you use --save_plot, it will save the plot image to the server and return the filename.
+    If you do not use --save_plot, it will not save the analyzed plot.
+    The default for --save_plot is False.
+    The default for --camera is False.
+
     
     Example output:
     Angle: 45.0 degrees
@@ -73,3 +103,27 @@ angle_extraction.py
     Fit Success: True
     Fit Assessment: 0.95
 
+
+
+-------------------------------------------
+basler_capture.py
+    This script contains functions to setup, capture, and close the Basler camera using the pypylon library.
+    It contains the following functions:
+    - setup_camera() -> None: Initializes the camera and prepares it for taking pictures.
+    - capture_image(filename: str) -> str: Takes a picture and saves it to the specified filename. Returns the filename.
+    - close_camera() -> None: Closes the camera connection and releases resources.
+    
+    Example usage:
+    setup_camera()
+    filename = capture_image("path/to/save/image.png")
+    close_camera()
+
+
+    You may also use the take_picture(filename: str) -> str function to setup, capture, and close the camera in one call.
+    Example usage:
+    take_picture("path/to/save/image.png")
+    This will save the image to the specified filename and return the filename.
+
+
+
+-------------------------------------------
