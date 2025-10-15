@@ -44,7 +44,7 @@ for i in range(20):
     #add timestamp to filename
     
     
-    aex.Analyze_Image(file_name,plot_level=1,verbose_level=0)
+    print(aex.Analyze_Image_lifetest(file_name,plot_level=1,verbose_level=0))
     plt.show()
     # time.sleep(0.5)
     plt.close('all')
