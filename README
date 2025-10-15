@@ -8,12 +8,12 @@ angle_extraction_server.py -- this is the main flask server that will handle req
 
 analyze_image_with_plot( filename: str, save_plot: bool) -> tuple:
 
-    This is the main function that will be called by the flask server. It takes in a filename and a boolean to save the plot or not. It returns a tuple of the angle, absolute unceertainty, boolean of fitting success, and an assessment value of the fit.
-    It returns a tuple of the angle, absolute unceertainty, boolean of fitting success, and an assessment value of the fit
+    This is the main function that will be called by the flask server. It takes in a filename and a boolean to save the plot or not. It returns a tuple of the angle, absolute uncertainty, boolean of fitting success, and an assessment value of the fit.
+    It returns a tuple of the angle, absolute uncertainty, boolean of fitting success, and an assessment value of the fit.
 
 
 flask - route "/compute"
-    This is the main route that will be called by the client. It takes in a filename and a boolean to save the plot or not. It returns a JSON object with the angle, absolute unceertainty, boolean of fitting success, and an assessment value of the fit.
+    This is the main route that will be called by the client. It takes in a filename and a boolean to save the plot or not. It returns a JSON object with the angle, absolute uncertainty, boolean of fitting success, and an assessment value of the fit.
     It calls the analyze_image_with_plot function and returns the result as a JSON object.
     Example JSON response:
     {
@@ -37,7 +37,7 @@ flask - route "/compute"
 
     For the 'success' key, a value of 1 indicates a successful fit, while 0 indicates a failure to fit the lines properly.
     For the 'fit_quality' key, it is a value between 0 and 1, with 1 being a perfect fit and 0 being a poor fit.
-    For the 'uncertainty' key, it is the absolute uncertainty in degrees.  Full measurment = angle +/- uncertainty.
+    For the 'uncertainty' key, it is the absolute uncertainty in degrees.  Full measurement = angle +/- uncertainty.
 
 
 flask - route "/plot/<filename>"
@@ -82,8 +82,8 @@ flask - route "/capture_image"
 
 
 angle_extraction_call.py
-    This is a simple script to call the flask server and get the angle and uncertainty. It takes in a filename and a boolean to save the plot or not. It prints out the angle, absolute unceertainty, boolean of fitting success, and an assessment value of the fit.
-    It returns a JSON object with the angle, absolute unceertainty, boolean of fitting success, and an assessment value of the fit.
+    This is a simple script to call the flask server and get the angle and uncertainty. It takes in a filename and a boolean to save the plot or not. It prints out the angle, absolute uncertainty, boolean of fitting success, and an assessment value of the fit.
+    It returns a JSON object with the angle, absolute uncertainty, boolean of fitting success, and an assessment value of the fit.
     Example usage:
     python angle_extraction_call.py 
         --camera --save_plot 
@@ -122,7 +122,7 @@ angle_extraction_call.py
 -------------------------------------------
 
 angle_extraction.py
-    This is the main script that contains the Analyze_Image_lifetest function. It takes in a filename and a boolean to save the plot or not. It returns a tuple of the angle, absolute unceertainty, boolean of fitting success, and an assessment value of the fit.
+    This is the main script that contains the Analyze_Image_lifetest function. It takes in a filename and a boolean to save the plot or not. It returns a tuple of the angle, absolute uncertainty, boolean of fitting success, and an assessment value of the fit.
     It also contains several helper functions to process the image, fit the data, and calculate the angle and uncertainty.
     The main function is Analyze_Image_lifetest(filename: str, save_plot: bool) -> tuple:
     Example usage:
