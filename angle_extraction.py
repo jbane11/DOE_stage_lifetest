@@ -6,8 +6,9 @@ from matplotlib import pyplot as plt
 import scipy,os
 from scipy.optimize import minimize
 # from typing import Tuple, List, Optional
+        
+from sklearn.linear_model import RANSACRegressor, LinearRegression
 # import math
-from sklearn.linear_model import RANSACRegressor
 # from sklearn.cluster import KMeans
 import numpy as np
 
@@ -1104,6 +1105,284 @@ def fit_two_lines_ransac_improved(points, residual_threshold=10.0, min_angle_deg
 
     return best_fit
 
+def rotate(points, angle_deg, center=(0, 0)):
+    """
+    Rotate points around a given center by angle (in degrees).
+    """
+    angle_rad = np.radians(angle_deg)
+    rotation_matrix = np.array([
+        [np.cos(angle_rad), -np.sin(angle_rad)],
+        [np.sin(angle_rad),  np.cos(angle_rad)]
+    ])
+    
+    # Translate points to origin, rotate, then translate back
+    translated = points - center
+    rotated = translated @ rotation_matrix.T
+    return rotated + center
+
+
+def two_line_fit_checks(points:np.ndarray, plot=False, verbose=False):
+    """
+    Fit two lines to the given 2D data using an improved RANSAC approach with validation checks.
+    Steps:
+    1. Fits two lines using RANSAC. Inside of while loop to allow for multiple attempts.
+    1. b. Can use rotation to improve fit.
+    1. c. Validate the fit of the two lines using angle separation. 
+
+    Parameters:
+    points (numpy.ndarray): A 2D array of shape (N, 2) where each row represents a point (x, y).
+    plot (bool): If True, plot the data points and the fitted lines.
+    verbose (bool): If True, print additional information during processing.
+    Returns: 
+    two lines parameters and points for the two lines in the form (slope1, intercept1, slope2, intercept2, points1, points2).  
+    """
+    temp_points = points.copy()
+    fit_success = False
+    fit_count  = 0
+    max_fits   = 5
+    intersection_check=False
+
+    outlier_ratio=0.0
+    ratio_threshold=0.4
+
+    #run the fit and check loop while fit_success or intersection_check is False or until fit_count get to max_fits
+
+    while (not fit_success or not intersection_check) and  fit_count < max_fits:
+        fit_count += 1
+        if verbose:
+            print(f"Fit attempt {fit_count}...")
+        logger.info(f"Fit attempt {fit_count}...")
+
+        random_points = np.array(temp_points)
+        
+        # radomly  sort the points
+        np.random.shuffle(random_points)
+        # print("random points",random_points[:2])
+        X = random_points[:,0].reshape(-1,1)
+        y = random_points[:,1]
+        angle=None
+        rotated_points=None
+        centroid=None
+        if fit_count > 1:
+            angle = np.deg2rad(np.random.uniform(25, 45))
+            if verbose:
+                print(f"  Rotating points by {np.rad2deg(angle):.1f}° for better fit")
+            logger.info(f"Rotating points by {np.rad2deg(angle):.1f}° for better fit")
+            # Rotation matrix
+            R = np.array([[np.cos(angle), -np.sin(angle)],
+                          [np.sin(angle),  np.cos(angle)]])
+            # Rotate points around their centroid
+            # centroid = np.mean(random_points, axis=0)
+            centroid = (0.0,0.0)
+            centered_points = random_points - centroid
+            rotated_points = centered_points.dot(R.T) + centroid
+            X = rotated_points[:,0].reshape(-1,1)
+            y = rotated_points[:,1]
+
+        #first guess
+        # Use RANSAC to detect first line
+        ransac1 = RANSACRegressor(LinearRegression(), residual_threshold=10, random_state=0)
+        ransac1.fit(X, y)
+        inlier_mask1 = ransac1.inlier_mask_
+        outlier_mask1= np.logical_not(inlier_mask1)
+
+        X_remaining = X[outlier_mask1]
+        y_remaining = y[outlier_mask1]
+
+        
+        # Use RANSAC on remaining points for second line
+        
+        ransac2 = RANSACRegressor(LinearRegression(), 
+                    residual_threshold=7.1, random_state=fit_count)
+        ransac2.fit(X_remaining, y_remaining)
+        inlier_mask2 = ransac2.inlier_mask_
+        outlier_mask2= np.logical_not(inlier_mask2)
+
+        #Full mask for original points
+        full_inlier_mask2 = np.zeros(len(points), dtype=bool)
+        remaining_indices = np.where(outlier_mask1)[0]
+        full_inlier_mask2[remaining_indices[inlier_mask2]] = True
+        full_outlier_mask2 = np.logical_not(full_inlier_mask2)
+
+        inlier_mask2 = full_inlier_mask2
+        inlier_mask2_temp = inlier_mask2.copy()
+        outlier_mask2 = full_outlier_mask2
+        #slopes and intercepts
+        slope1 = ransac1.estimator_.coef_[0]
+        intercept1 = ransac1.estimator_.intercept_
+        slope2 = ransac2.estimator_.coef_[0]
+        intercept2 = ransac2.estimator_.intercept_
+
+    #store slope and intercepts as rotated values
+        rotated_slope1 = slope1
+        rotated_intercept1 = intercept1 
+        rotated_slope2 = slope2
+        rotated_intercept2 = intercept2
+
+
+     # Calculate angle between lines
+        rot_angle1 = abs(np.rad2deg(np.arctan(slope1)))
+        rot_angle2 = abs(np.rad2deg(np.arctan(slope2)))
+        # print("rotated angles: " ,rot_angle1, rot_angle2)
+        rot_angle_diff = abs((rot_angle2 - rot_angle1))
+
+        xfit1_rot = np.linspace(min(X[inlier_mask1]),max(X[inlier_mask1]))
+        yfit1_rot = slope1*xfit1_rot + intercept1
+
+        xfit2_rot = np.linspace(min(X[inlier_mask2]),max(X[inlier_mask2]))
+        yfit2_rot = slope2*xfit2_rot + intercept2   
+
+
+        if plot and fit_count >1:
+            fig,ax = plt.subplots(1,2, figsize=(8,4))
+  
+            ax[0].scatter(X[inlier_mask1], ransac1.predict(X[inlier_mask1]), 
+                        color="green",marker="+", s=20, label="line1 inliers")
+            ax[0].plot(xfit1_rot, yfit1_rot, "g-", label="Line 1 fit")
+            ax[0].scatter(X[inlier_mask2], ransac2.predict(X[inlier_mask2]), 
+                        color="blue", marker="x", s=20, label="line2 inliers")
+            ax[0].plot(xfit2_rot, yfit2_rot, "b-", label="Line 2 fit")
+            
+            ax[0].scatter(X[outlier_mask1 & outlier_mask2], y[outlier_mask1 & outlier_mask2], 
+                        color="grey", marker="s", s=20, label="line2 outliers")
+            #flip y axis
+            ax[0].yaxis.set_inverted(True)
+            ax[0].legend()
+            ax[0].grid()
+            ax[0].set_title(f"Fit attempt {fit_count} -rotated")
+
+
+
+
+
+        if fit_count >1 and angle is not None:
+            #un rotate the points and slopes/intercepts
+            rot_slope1 = slope1
+            rot_slope2 = slope2
+            rot_intercept1 = intercept1
+            rot_intercept2 = intercept2
+            rotated_points = np.array(rotated_points)
+            # Inverse rotation matrix
+            R_inv = np.array([[np.cos(angle), np.sin(angle)],    
+                                [-np.sin(angle),  np.cos(angle)]])
+            # Rotate slopes (as direction vectors)
+            rotated_points = rotated_points - centroid
+            unrotated_points = rotated_points.dot(R_inv.T)
+            unrotated_points = unrotated_points + centroid
+            X = unrotated_points[:,0].reshape(-1,1)
+            y = unrotated_points[:,1]
+
+            #unraoted the slopes and intercepts
+            intercept2 = rot_intercept2 / (np.cos(angle) + slope2 * np.sin(angle))
+            intercept1 = rot_intercept1 / (np.cos(angle) + slope1 * np.sin(angle))
+            slope1 = (rot_slope1 * np.cos(angle) - np.sin(angle)) / (np.cos(angle) + rot_slope1 * np.sin(angle))
+            slope2 = (rot_slope2 * np.cos(angle) - np.sin(angle)) / (np.cos(angle) + rot_slope2 * np.sin(angle))
+        #done rotating and refitting
+
+        angle_sep_value = 32.49 
+        # Calculate angle between lines
+        angle1 = np.rad2deg(np.arctan(slope1))
+        angle2 = np.rad2deg(np.arctan(slope2))
+        angle_diff = abs(angle2 - angle1)
+        if angle_diff > 90:
+            angle_diff = 180 - angle_diff
+
+
+        if np.abs(angle_diff - angle_sep_value) <= 3.5:
+            fit_success = True
+            if verbose:
+                print(f"\t Lines accepted with angle difference: {angle_diff:.1f}°")
+            logger.info(f"Lines accepted with angle difference: {angle_diff:.1f}°")
+        else:
+            if verbose:
+                print("Not succesful with angle difference of ", angle_diff)
+            logger.info(f"Not succesful with angle difference of {angle_diff}")
+
+
+        # check the intersection location
+        intersection_pos_x = (intercept2 - intercept1) / (slope1 - slope2)
+        intersection_pos_y = slope1 * intersection_pos_x + intercept1
+
+        # Find the middle of line1   
+        middle_line1_x = (X[inlier_mask1].min() + X[inlier_mask1].max()) / 2
+        middle_line1_y = slope1 * middle_line1_x + intercept1
+
+        #check to see if the intersection is close to the middle of line 1
+        distance_to_middle = np.sqrt((intersection_pos_x - middle_line1_x)**2 + (intersection_pos_y - middle_line1_y)**2)
+        if verbose:
+            print(f"  Intersection at ({intersection_pos_x:.1f}, {intersection_pos_y:.1f}), "
+                  f"distance to line 1 middle: {distance_to_middle:.1f}")
+
+        logger.info(f"Intersection at ({intersection_pos_x:.1f}, {intersection_pos_y:.1f}), "
+                  f"distance to line 1 middle: {distance_to_middle:.1f}")
+
+        if distance_to_middle < 25:
+            intersection_check = True
+            if verbose:
+                print("\t Lines accepted with intersection close to line 1 middle")
+            logger.info("Lines accepted with intersection close to line 1 middle")
+        else:
+            if verbose:
+                print("Not succesful with intersection distance of ", distance_to_middle)
+            logger.info(f"Not succesful with intersection distance of {distance_to_middle}")
+
+        if plot and fit_count ==1:
+            fig,ax = plt.subplots(figsize=(6,4))
+            ax.scatter(X[inlier_mask1], y[inlier_mask1],   
+                         color="gray",marker="d", s=20, label="data_line1")
+            ax.scatter(X[inlier_mask1], ransac1.predict(X[inlier_mask1]), 
+                        color="green",marker="+", s=20, label="line1 inliers")
+            ax.scatter(X[inlier_mask2], y[inlier_mask2],
+                         color="slategray", marker="o", s=20, label="data_line2")
+            ax.scatter(X[inlier_mask2], ransac2.predict(X[inlier_mask2]), 
+                        color="blue", marker="x", s=20, label="line2 inliers")
+            
+            ax.scatter(X[outlier_mask1 & outlier_mask2], y[outlier_mask1 & outlier_mask2], 
+                        color="grey", marker="s", s=20, label="line2 outliers")
+            
+            ax.scatter(intersection_pos_x, intersection_pos_y, color="red", marker="*", s=100, label="intersection")
+
+            #flip y axis
+            ax.yaxis.set_inverted(True)
+            ax.legend()
+            ax.grid()
+            plt.show()
+            
+
+
+        if plot and fit_count >1:
+    
+            xfit1 = np.arange(X[inlier_mask1].min(),X[inlier_mask1].max(),0.1)
+            yfit1 = slope1 * xfit1 + intercept1 
+            xfit2 = np.arange(X[inlier_mask2].min(),X[inlier_mask2].max(),0.1)
+            yfit2 = slope2 * xfit2 + intercept2 
+            
+            ax[1].scatter(X[inlier_mask1], y[inlier_mask1],   
+                         color="green",marker="d", s=20, label="data_line1")
+            ax[1].plot(xfit1, yfit1, "g-", label="Line 1 fit")
+            ax[1].scatter(X[inlier_mask2], y[inlier_mask2],
+                         color="blue", marker="o", s=20, label="data_line2")
+            ax[1].plot(xfit2, yfit2, "b-", label="Line 2 fit")
+            
+            ax[1].scatter(X[outlier_mask1 & outlier_mask2], y[outlier_mask1 & outlier_mask2], 
+                        color="grey", marker="s", s=20, label="line2 outliers")
+            
+            ax[1].scatter(intersection_pos_x, intersection_pos_y, color="red", marker="*", s=100, label="intersection")
+            #flip y axis
+            ax[1].yaxis.set_inverted(True)
+            ax[1].set_ylim(975,450)
+            ax[1].set_xlim(550,975)
+            ax[1].legend()
+            ax[1].grid()
+            plt.show()
+
+        # recombine x and y into points
+    points = np.hstack((X, y.reshape(-1,1)))
+
+    return slope1, intercept1, slope2, intercept2 ,points[inlier_mask1], points[inlier_mask2]
+
+
+
 
 def two_line_fit_with_rotation(points:np.ndarray, plot=False, verbose=False):
     """
@@ -1447,7 +1726,7 @@ def Angle_Measurment(image,points, line_info, plot=False, verbose=False, image_n
         points = np.vstack((Horizontal_scan,Verticle_scan))
     
     if line_info is None:
-        line_info = two_line_fit_with_rotation(points, plot=False, verbose=False)
+        line_info = two_line_fit_checks(points, plot=False, verbose=False)
 
     
     line1_points = line_info[4]
@@ -1470,13 +1749,13 @@ def Angle_Measurment(image,points, line_info, plot=False, verbose=False, image_n
         print(f"Line 1 slope: {line1_m:.3f}, intercept: {line1_b:.1f}")
         print(f"Line 2 slope: {line2_m:.3f}, intercept: {line2_b:.1f}")
         print(f"Angle of line 1 before quadrant adjustment: {Angle_line1:.1f}°")
-        print(f"Angle of line 2 before quadrant adjustment: {Angle_line2:.1f}°")
+        # print(f"Angle of line 2 before quadrant adjustment: {Angle_line2:.1f}°")
 
     logger.info(f"Intersection at x={x_intersect:.1f}, y={y_intersect:.1f}")
     logger.info(f"Line 1 slope: {line1_m:.3f}, intercept: {line1_b:.1f}")
     logger.info(f"Line 2 slope: {line2_m:.3f}, intercept: {line2_b:.1f}")
     logger.info(f"Angle of line 1 before quadrant adjustment: {Angle_line1:.1f} degrees")
-    logger.info(f"Angle of line 2 before quadrant adjustment: {Angle_line2:.1f} degrees")
+    # logger.info(f"Angle of line 2 before quadrant adjustment: {Angle_line2:.1f} degrees")
 
     # Adjust the angle based on which quadrant line 2 lies in
     line2_quadrant = None
@@ -1518,54 +1797,55 @@ def Angle_Measurment(image,points, line_info, plot=False, verbose=False, image_n
         elif line2_quadrant ==4 or line2_quadrant ==1:
             Angle_line1 = 360- Angle_line1 
 
-    #count of points of line 1 in each quadrant
-    line1_quadrant_counts = [0,0,0,0]
-    for point in line1_points:
-        if point[0] > x_intersect and point[1] < y_intersect:
-            line1_quadrant_counts[0] += 1
-        elif point[0] < x_intersect and point[1] < y_intersect:
-            line1_quadrant_counts[1] += 1
-        elif point[0] < x_intersect and point[1] > y_intersect:
-            line1_quadrant_counts[2] += 1
-        elif point[0] > x_intersect and point[1] > y_intersect:
-            line1_quadrant_counts[3] += 1
+    # #count of points of line 1 in each quadrant
+    # line1_quadrant_counts = [0,0,0,0]
+    # for point in line1_points:
+    #     if point[0] > x_intersect and point[1] < y_intersect:
+    #         line1_quadrant_counts[0] += 1
+    #     elif point[0] < x_intersect and point[1] < y_intersect:
+    #         line1_quadrant_counts[1] += 1
+    #     elif point[0] < x_intersect and point[1] > y_intersect:
+    #         line1_quadrant_counts[2] += 1
+    #     elif point[0] > x_intersect and point[1] > y_intersect:
+    #         line1_quadrant_counts[3] += 1
 
     #count of points of line 2 in each quadrant
-    line2_quadrant_counts = [0,0,0,0]
-    for point in line2_points:
-        if point[0] > x_intersect and point[1] < y_intersect:
-            line2_quadrant_counts[0] += 1
-        elif point[0] < x_intersect and point[1] < y_intersect:
-            line2_quadrant_counts[1] += 1
-        elif point[0] < x_intersect and point[1] > y_intersect:
-            line2_quadrant_counts[2] += 1
-        elif point[0] > x_intersect and point[1] > y_intersect:
-            line2_quadrant_counts[3] += 1
+    # line2_quadrant_counts = [0,0,0,0]
+    # for point in line2_points:
+    #     if point[0] > x_intersect and point[1] < y_intersect:
+    #         line2_quadrant_counts[0] += 1
+    #     elif point[0] < x_intersect and point[1] < y_intersect:
+    #         line2_quadrant_counts[1] += 1
+    #     elif point[0] < x_intersect and point[1] > y_intersect:
+    #         line2_quadrant_counts[2] += 1
+    #     elif point[0] > x_intersect and point[1] > y_intersect:
+    #         line2_quadrant_counts[3] += 1
 
 
     #Need to add in some uncertainty estimation here
     #Based on the number of points in each quadrant, and the length of the lines
 
-    if verbose:
-        print("--------------------------------------------------")
-        print(f"Total points: {len(points)}")
-        print(f"Line 1 total points: {len(line1_points)}")
-        print(f"Line 1 quadrant counts: Q1={line1_quadrant_counts[0]}, Q2={line1_quadrant_counts[1]}, Q3={line1_quadrant_counts[2]}, Q4={line1_quadrant_counts[3]}")
-        print(f"Line 2 quadrant counts: Q1={line2_quadrant_counts[0]}, Q2={line2_quadrant_counts[1]}, Q3={line2_quadrant_counts[2]}, Q4={line2_quadrant_counts[3]}")
-        print(f"Line 2 lies in quadrant: {line2_quadrant}")
-        print(f"Line 1 angle = {Angle_line1:.2f} degrees, Line 2 angle = {Angle_line2:.2f} degrees")
-        print(f"Intersection point: ({x_intersect:.2f}, {y_intersect:.2f})")
+    # if verbose:
+    #     print("--------------------------------------------------")
+    #     print(f"Total points: {len(points)}")
+    #     print(f"Line 1 total points: {len(line1_points)}")
+    #     # print(f"Line 1 quadrant counts: Q1={line1_quadrant_counts[0]}, Q2={line1_quadrant_counts[1]}, Q3={line1_quadrant_counts[2]}, Q4={line1_quadrant_counts[3]}")
+    #     # print(f"Line 2 quadrant counts: Q1={line2_quadrant_counts[0]}, Q2={line2_quadrant_counts[1]}, Q3={line2_quadrant_counts[2]}, Q4={line2_quadrant_counts[3]}")
+    #     print(f"Line 2 lies in quadrant: {line2_quadrant}")
+    #     print(f"Line 1 angle = {Angle_line1:.2f} degrees, Line 2 angle = {Angle_line2:.2f} degrees")
+    #     print(f"Intersection point: ({x_intersect:.2f}, {y_intersect:.2f})")
 
     logger.info("--------------------------------------------------")
     logger.info(f"Total points: {len(points)}")
     logger.info(f"Line 1 total points: {len(line1_points)}")
-    logger.info(f"Line 1 quadrant counts: Q1={line1_quadrant_counts[0]}, Q2={line1_quadrant_counts[1]}, Q3={line1_quadrant_counts[2]}, Q4={line1_quadrant_counts[3]}")
-    logger.info(f"Line 2 quadrant counts: Q1={line2_quadrant_counts[0]}, Q2={line2_quadrant_counts[1]}, Q3={line2_quadrant_counts[2]}, Q4={line2_quadrant_counts[3]}")
+    # logger.info(f"Line 1 quadrant counts: Q1={line1_quadrant_counts[0]}, Q2={line1_quadrant_counts[1]}, Q3={line1_quadrant_counts[2]}, Q4={line1_quadrant_counts[3]}")
+    # logger.info(f"Line 2 quadrant counts: Q1={line2_quadrant_counts[0]}, Q2={line2_quadrant_counts[1]}, Q3={line2_quadrant_counts[2]}, Q4={line2_quadrant_counts[3]}")
     logger.info(f"Line 2 lies in quadrant: {line2_quadrant}")
     logger.info(f"Line 1 angle = {Angle_line1:.2f} degrees, Line 2 angle = {Angle_line2:.2f} degrees")
     logger.info(f"Intersection point: ({x_intersect:.2f}, {y_intersect:.2f})")
     logger.info("--------------------------------------------------")
     
+    #maybe correct the angle
 
     if plot:
         fig, ax = plt.subplots()
@@ -1573,6 +1853,8 @@ def Angle_Measurment(image,points, line_info, plot=False, verbose=False, image_n
             ax.imshow(image, cmap='gray')
 
         ax.scatter(points[:,0], points[:,1], color='gray', s=10, label='Data Points')
+        ax.scatter(line1_points[:,0], line1_points[:,1], color='red', s=10, label='Line 1 Points')
+        ax.scatter(line2_points[:,0], line2_points[:,1], color='blue', s=10, label='Line 2 Points')
         X_line1 = np.arange(line1_points[:,0].min(), line1_points[:,0].max(), 0.1)
         X_line2 = np.arange(line2_points[:,0].min(), line2_points[:,0].max(), 0.1)
 
@@ -1581,8 +1863,8 @@ def Angle_Measurment(image,points, line_info, plot=False, verbose=False, image_n
         ax.plot(x_intersect, y_intersect, 'go', markersize=10, label='Intersection Point')
         ax.axhline(y=y_intersect, color='gray', linestyle='--', label='Horizontal Line at Intersection')
         ax.axvline(x=x_intersect, color='slategray', linestyle='--', label='Vertical Line at Intersection')
-        ax.set_xlim(points[:,0].min()-10, points[:,0].max()+10)
-        ax.set_ylim(points[:,1].min()-10, points[:,1].max()+10)
+        # ax.set_xlim(points[:,0].min()-10, points[:,0].max()+10)
+        # ax.set_ylim(points[:,1].min()-10, points[:,1].max()+10)
         if image is not None:
             ax.set_xlim(0, image.shape[1])
             ax.set_ylim(image.shape[0], 0)
@@ -1594,7 +1876,9 @@ def Angle_Measurment(image,points, line_info, plot=False, verbose=False, image_n
         ax.grid()
         ax.set_xlabel('X')
         ax.set_ylabel('Y')
-        ax.legend()
+        # ax.legend()
+
+        
 
 
     return Angle_line1, Angle_line2, (x_intersect, y_intersect)
@@ -1702,7 +1986,8 @@ def Analyze_Image_with_assessment(image_file_name: str, plot_level:int=0, verbos
         plot = True
     if verbose_level > 1:
         verbose = True
-    line_info = two_line_fit_with_rotation(Scan, plot=plot, verbose=verbose)
+    line_info = two_line_fit_checks(Scan, plot=plot, verbose=verbose)
+    #two_line_fit_with_rotation(Scan, plot=plot, verbose=verbose)
 
     if plot_level > 0:
         plot = True
@@ -1864,6 +2149,7 @@ def assess_fit_quality(points, line_info, correct_intersection_point=(810, 710.)
     overall_quality = (angle_assessment + intersection_assessment*0.4 + coverage_assessment) / 2.4
 
     quality = Correct_intersection and Correct_coverage and Correct_angle_seperation
+
 
     return {
         "angle_difference": round(angle_diff_deg,3),
