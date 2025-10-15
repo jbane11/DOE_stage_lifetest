@@ -1,7 +1,23 @@
 # README for angle extraction software for DOE Analyze_Image_lifetest
 
-This is broken down into four main scripts. 
 
+Example use of this software.
+
+python angle_extraction_server.py
+
+Then in another terminal window, run:
+
+If you have access to the camera, you can run:
+python angle_extraction_call.py --camera --save_plot
+
+otherwise, use an existing image:
+python angle_extraction_call.py --filename "test_images/image_name.png" --save_plot
+
+
+
+
+
+This is broken down into four main scripts. 
 
 -----------------------------------------
 angle_extraction_server.py -- this is the main flask server that will handle requests from the client. It has several routes to handle different requests.
