@@ -15,8 +15,8 @@ flask>=2.0.0
 requests>=2.25.0
 
 # Additional dependencies found in the codebase
-# pypylon  # For Basler camera support (uncomment if using Basler cameras)
-# pythonnet  # For .NET integration (clr module) - uncomment if needed
+pypylon  # For Basler camera support (uncomment if using Basler cameras)
+pythonnet  # For .NET integration (clr module) - uncomment if needed
 
 # Standard library modules (included with Python):
 # - time
