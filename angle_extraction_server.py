@@ -79,7 +79,8 @@ def compute():
             "angle": round(angle_info[0], 2) if angle_info[0] is not None else None,
             "uncertainty": round(angle_info[1], 3) if angle_info[1] is not None else None,
             "success": quality,
-            "fit_quality": round(angle_info[3], 2) if angle_info[3] is not None else None
+            "fit_quality": round(angle_info[3], 2) if angle_info[3] is not None else None,
+            "error":""
         }
         
         if save_plot and plot_filename:
