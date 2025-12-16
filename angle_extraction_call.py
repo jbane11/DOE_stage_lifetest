@@ -48,8 +48,9 @@ if args.camera:
 
 # If a plot was saved, print the information
 if "plot_saved" in result:
-    print(f"Plot saved to: {result['plot_saved']}")
-    print(f"Plot available at: http://127.0.0.1:5000{result['plot_url']}")
+    if "plot_saved" in result and result["plot_saved"]:
+        print(f"Plot saved to: {result['plot_saved']}")
+        print(f"Plot available at: http://127.0.0.1:5000{result['plot_url']}")
 
 
 print(f"Elapsed time for call: {time.time()-Start_time:0.2f} seconds")

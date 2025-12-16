@@ -86,12 +86,16 @@ def compute():
         if save_plot and plot_filename:
             response_data["plot_saved"] = plot_filename
             response_data["plot_url"] = f"/plot/{os.path.basename(plot_filename)}"
+
+        else:
+            response_data["plot_saved"] = ""
+            response_data["plot_url"] = ""
         
         return jsonify(response_data)
         
     except Exception as e:
         
-        return jsonify({"angle": -9999, "uncertainty": -9999, "success": 0, "fit_quality": -9999, "error": str(e)}), 500
+        return jsonify({"angle": -9999, "uncertainty": -9999, "success": 0, "fit_quality": -9999, "plot_saved": "", "plot_url": "", "error": str(e)}), 500
     
     
 
