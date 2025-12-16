@@ -89,7 +89,10 @@ def compute():
         return jsonify(response_data)
         
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        
+        return jsonify({"angle": -9999, "uncertainty": -9999, "success": 0, "fit_quality": -9999, "error": str(e)}), 500
+    
+    
 
 @app.route('/plot/<filename>', methods=['GET'])
 def get_plot(filename):
