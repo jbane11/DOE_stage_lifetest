@@ -79,17 +79,25 @@ def compute():
             "angle": round(angle_info[0], 2) if angle_info[0] is not None else None,
             "uncertainty": round(angle_info[1], 3) if angle_info[1] is not None else None,
             "success": quality,
-            "fit_quality": round(angle_info[3], 2) if angle_info[3] is not None else None
+            "fit_quality": round(angle_info[3], 2) if angle_info[3] is not None else None,
+            "error":""
         }
         
         if save_plot and plot_filename:
             response_data["plot_saved"] = plot_filename
             response_data["plot_url"] = f"/plot/{os.path.basename(plot_filename)}"
+
+        else:
+            response_data["plot_saved"] = ""
+            response_data["plot_url"] = ""
         
         return jsonify(response_data)
         
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        
+        return jsonify({"angle": -9999, "uncertainty": -9999, "success": 0, "fit_quality": -9999, "plot_saved": "", "plot_url": "", "error": str(e)}), 500
+    
+    
 
 @app.route('/plot/<filename>', methods=['GET'])
 def get_plot(filename):
