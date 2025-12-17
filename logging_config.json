@@ -13,24 +13,24 @@
       "level": "DEBUG",
       "filename": "logs\\DEBUG.log",
       "formatter": "simple",
-      "maxBytes": 10000000,
-      "backupCount": 10
+      "maxBytes": 1000000000,
+      "backupCount": 20
     },
     "stderr": {
       "class": "logging.handlers.RotatingFileHandler",
       "level": "WARNING",
       "filename": "logs\\stderr.log",
       "formatter": "simple",
-      "maxBytes": 1000000,
-      "backupCount": 10
+      "maxBytes": 100000000,
+      "backupCount": 20
     },
     "file_json": {
       "class": "logging.handlers.RotatingFileHandler",
       "level": "INFO",
       "formatter": "simple",
       "filename": "logs\\log.csv",
-      "maxBytes": 1000000,
-      "backupCount": 10
+      "maxBytes": 100000000,
+      "backupCount": 20
     },
     "queue_handler": {
       "class": "logging.handlers.QueueHandler",
