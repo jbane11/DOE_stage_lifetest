@@ -44,9 +44,9 @@ if queue_handler is not None:
     queue_handler.listener.start()
     atexit.register(queue_handler.listener.stop)
 
-#data header
+#data header,     #Angle, Angle_unc,Good_fit, fit_quality,final_cx, final_cy, final_r, final_rms
 logger.error("--- New Run ---")
-logger.error("timestamp,data,code_info")
+logger.error("timestamp,Angle,Angle_unc,Good_fit,fit_quality,final_cx,final_cy,final_r,final_rms,code_info")
 logger.info("Logging setup complete.")
 
 
