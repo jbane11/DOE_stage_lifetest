@@ -33,6 +33,9 @@ today = datetime.date.today().strftime("%Y%m%d")
 config["handlers"]["stderr"]["filename"] = f"logs/{today}-stderr.log"
 config["handlers"]["file_json"]["filename"] = f"logs/{today}-Lifetest.log"
 config["handlers"]["DEBUG"]["filename"] = f"logs/{today}-debug.log"
+config["handlers"]["DATA"]["filename"] = f"logs/{today}-DATA.log"
+
+
 
 logging.config.dictConfig(config)
 logging.getLogger('matplotlib.font_manager').disabled = True
@@ -41,6 +44,9 @@ if queue_handler is not None:
     queue_handler.listener.start()
     atexit.register(queue_handler.listener.stop)
 
+#data header
+logger.error("--- New Run ---")
+logger.error("timestamp,data,code_info")
 logger.info("Logging setup complete.")
 
 
@@ -1974,7 +1980,7 @@ def Analyze_Image_with_assessment(image_file_name: str, plot_level:int=0, verbos
 
 
     Edges = horizontal_edges(image,resolution=50,plot=0,verbose=False)
-    circle_info = Center_Radius_iterations(peaks=Edges, max_iterations=10, threshold=0.02, plot=False, verbose=False)    
+    circle_info = Center_Radius_iterations(peaks=Edges, max_iterations=10, threshold=0.02, plot=plot, verbose=verbose)    
 
     Verticle_scan = vertical_scan_for_center_peaks(image, resolution=10, center_info=circle_info, plot=plot, verbose=verbose)
     Horizontal_scan = horizontal_scan_for_center_peaks(image, resolution=10, center_info=circle_info, plot=plot, verbose=verbose)
@@ -1989,6 +1995,10 @@ def Analyze_Image_with_assessment(image_file_name: str, plot_level:int=0, verbos
     line_info = two_line_fit_checks(Scan, plot=plot, verbose=verbose)
     #two_line_fit_with_rotation(Scan, plot=plot, verbose=verbose)
 
+    fit_assessment = assess_fit_quality(Scan, line_info)
+    Angle_unc = angle_uncertainty_estimation(Scan, line_info,verbose=verbose)
+
+
     if plot_level > 0:
         plot = True
     if verbose_level > 0:
@@ -1996,8 +2006,7 @@ def Analyze_Image_with_assessment(image_file_name: str, plot_level:int=0, verbos
 
     Angle_info=Angle_Measurment(image,Scan,line_info,plot=plot,verbose=verbose,image_number=img_number)
     Angle=Angle_info[0]
-    fit_assessment = assess_fit_quality(Scan, line_info)
-    Angle_unc = angle_uncertainty_estimation(Scan, line_info)
+
     if verbose:
         print("Fit assessment:", fit_assessment)
     if fit_assessment['quality'] == False:
@@ -2014,6 +2023,12 @@ def Analyze_Image_with_assessment(image_file_name: str, plot_level:int=0, verbos
         print("Angle info:", Angle_info)
     logging.info(f"Processed image {img_number} in {finish - start:.2f} seconds")
     logging.info(f"Angle info: {Angle_info}")
+
+    final_cx, final_cy, final_r, final_rms, remaining, removed = circle_info
+
+
+    #Angle, Angle_unc,Good_fit, fit_quality,final_cx, final_cy, final_r, final_rms
+    logger.error(f"{Angle},{Angle_unc},{fit_assessment['quality']},{fit_assessment['overall_quality']},{final_cx},{final_cy},{final_r},{final_rms}")
 
     return Angle, Angle_unc, fit_assessment['quality'], fit_assessment['overall_quality']
 
@@ -2129,7 +2144,7 @@ def assess_fit_quality(points, line_info, correct_intersection_point=(810, 710.)
     coverage_ratio = total_covered / total_points if total_points > 0 else 0    
     # Overall quality assessment
 
-    #anlge correctness and assessment
+    #angle correctness and assessment
     Correct_angle_seperation = (angle_diff_deg > (angle_seperation_value - angle_seperation_acceptance)) and (angle_diff_deg < (angle_seperation_value + angle_seperation_acceptance))
 
     # this assessment should decrease quickly as the angle deviates from the ideal seperation value
