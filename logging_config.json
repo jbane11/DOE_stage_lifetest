@@ -8,6 +8,14 @@
     }  
   },
   "handlers": {
+      "DATA": {
+      "class": "logging.handlers.RotatingFileHandler",
+      "level": "ERROR",
+      "filename": "logs\\DATA.log",
+      "formatter": "simple",
+      "maxBytes": 1000000000,
+      "backupCount": 200
+    },
       "DEBUG": {
       "class": "logging.handlers.RotatingFileHandler",
       "level": "DEBUG",
@@ -35,6 +43,7 @@
     "queue_handler": {
       "class": "logging.handlers.QueueHandler",
       "handlers": [
+        "DATA",
         "stderr",
         "file_json",
         "DEBUG"
